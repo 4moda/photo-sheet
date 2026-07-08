@@ -135,7 +135,7 @@ struct FloatingControlBar: View {
 
     @ViewBuilder
     private var appearancePanel: some View {
-        Picker("スタイル", selection: $viewModel.sheet.layout.style) {
+        Picker("スタイル", selection: styleSelectionBinding) {
             ForEach(SheetStyle.allCases, id: \.self) { style in
                 Text(style.displayName).tag(style)
             }
@@ -185,6 +185,21 @@ struct FloatingControlBar: View {
 
     private var isGridStyle: Bool {
         viewModel.sheet.layout.style == .grid
+    }
+
+    private var styleSelectionBinding: Binding<SheetStyle> {
+        Binding(
+            get: { viewModel.sheet.layout.style },
+            set: { newStyle in
+                let oldStyle = viewModel.sheet.layout.style
+                let oldDefault = SheetBackground.recommended(for: oldStyle)
+                viewModel.sheet.layout.style = newStyle
+                // 背景を手動で変えていない場合のみ、スタイル既定色へ追従させる
+                if viewModel.sheet.layout.background == oldDefault {
+                    viewModel.sheet.layout.background = SheetBackground.recommended(for: newStyle)
+                }
+            }
+        )
     }
 
     private var gridOnlyOptions: some View {

@@ -77,6 +77,14 @@ enum SheetBackground: Equatable, Codable {
         case .custom(let color): color
         }
     }
+
+    /// スタイル別の推奨デフォルト背景
+    static func recommended(for style: SheetStyle) -> SheetBackground {
+        switch style {
+        case .grid: .white
+        case .filmStrip: .black
+        }
+    }
 }
 
 /// シートのレイアウト設定。
@@ -105,7 +113,7 @@ struct LayoutConfig: Equatable, Codable {
         cellAspect: .film3x2,
         spacingRatio: 0.012,
         marginRatio: 0.05,
-        background: .white,
+        background: .recommended(for: .grid),
         showFilename: false,
         style: .grid,
         paperFormat: .print8x10,
