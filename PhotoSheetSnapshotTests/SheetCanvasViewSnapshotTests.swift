@@ -16,9 +16,11 @@ final class SheetCanvasViewSnapshotTests: XCTestCase {
     /// テスト用の固定幅（iPhone 16 論理幅）
     private static let canvasWidth: CGFloat = 390
 
-    /// RECORD_SNAPSHOTS=true のとき参照画像を上書き生成する（CI の Update Snapshots ジョブで使用）
-    private static let isRecording: Bool =
-        ProcessInfo.processInfo.environment["RECORD_SNAPSHOTS"] == "true"
+    /// RECORD_SNAPSHOTS=true のとき参照画像を上書き生成する（CI の Update Snapshots ジョブで使用）。
+    /// nil のときはライブラリのデフォルト（.missing: 参照画像がなければ記録して fail）を使う。
+    private static var recordMode: SnapshotTestingConfiguration.Record? {
+        ProcessInfo.processInfo.environment["RECORD_SNAPSHOTS"] == "true" ? .all : nil
+    }
 
     private let imageCache = PhotoImageCache()
 
@@ -49,7 +51,7 @@ final class SheetCanvasViewSnapshotTests: XCTestCase {
                 traits: UITraitCollection(userInterfaceStyle: .light)
             ),
             named: name,
-            record: Self.isRecording,
+            record: Self.recordMode,
             testName: testName
         )
     }
