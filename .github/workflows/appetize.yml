@@ -62,6 +62,8 @@ jobs:
             -F "file=@PhotoSheet-simulator.zip" \
             -F "platform=ios")
           PUBLIC_KEY=$(echo "$RESPONSE" | jq -r '.publicKey')
+          echo "publicKey=$PUBLIC_KEY"
+          echo "appUrl=https://appetize.io/app/$PUBLIC_KEY"
           {
             echo "## Appetize デプロイ完了 🎉"
             echo ""
