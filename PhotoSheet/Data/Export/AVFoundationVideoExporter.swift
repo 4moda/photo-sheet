@@ -44,6 +44,9 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
         guard let fullImage = imgRenderer.uiImage else {
             throw VideoExportError.renderingFailed
         }
+        guard let fullCGImage = fullImage.cgImage else {
+            throw VideoExportError.renderingFailed
+        }
 
         // 2. ストリップのジオメトリを計算
         let outputSize = CGSize(width: Self.outputWidth, height: Self.outputHeight)
@@ -72,7 +75,8 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
         // 5. MP4 を書き出す（suspension point で Main Actor を解放）
         try await Self.writeMP4(
             specs:      specs,
-            fullImage:  fullImage,
+            fullCGImage: fullCGImage,
+            fullImageSize: fullImage.size,
             outputSize: outputSize,
             bgColor:    bgColor,
             fps:        fps,
@@ -88,7 +92,8 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
     /// コールバックが呼ばれない Simulator 上のハングを回避する。
     private static func writeMP4(
         specs:      [VideoExportGeometry.FrameSpec],
-        fullImage:  UIImage,
+        fullCGImage: CGImage,
+        fullImageSize: CGSize,
         outputSize: CGSize,
         bgColor:    UIColor,
         fps:        Int32,
@@ -148,7 +153,8 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
 
             let pb = try makePixelBuffer(
                 spec:       spec,
-                fullImage:  fullImage,
+                fullCGImage: fullCGImage,
+                fullImageSize: fullImageSize,
                 outputSize: outputSize,
                 bgColor:    bgColor,
                 poolRef:    adaptor.pixelBufferPool
@@ -178,53 +184,11 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
 
     private static func makePixelBuffer(
         spec:       VideoExportGeometry.FrameSpec,
-        fullImage:  UIImage,
+        fullCGImage: CGImage,
+        fullImageSize: CGSize,
         outputSize: CGSize,
         bgColor:    UIColor,
         poolRef:    CVPixelBufferPool?
-    ) throws -> CVPixelBuffer {
-        // ① UIImage で frame を合成
-        let frameImage = UIGraphicsImageRenderer(size: outputSize).image { _ in
-            bgColor.setFill()
-            UIRectFill(CGRect(origin: .zero, size: outputSize))
-
-            switch spec.content {
-            case .overview:
-                // キャンバス全体を width fit で中央揃え
-                let sc = outputSize.width / fullImage.size.width
-                let dw = outputSize.width
-                let dh = fullImage.size.height * sc
-                let dy = (outputSize.height - dh) / 2
-                fullImage.draw(in: CGRect(x: 0, y: dy, width: dw, height: dh))
-
-            case .strip(let cr):
-                // キャンバス内クロップ領域を outputSize に引き伸ばす
-                guard cr.width > 0, cr.height > 0,
-                      let cgImg = fullImage.cgImage?.cropping(to: cr) else { break }
-                UIImage(cgImage: cgImg).draw(in: CGRect(origin: .zero, size: outputSize))
-            }
-        }
-
-        // ② alpha フェード（黒オーバーレイ）
-        let finalImage: UIImage
-        if spec.alpha >= 0.999 {
-            finalImage = frameImage
-        } else {
-            finalImage = UIGraphicsImageRenderer(size: outputSize).image { _ in
-                frameImage.draw(at: .zero)
-                UIColor.black.withAlphaComponent(1 - spec.alpha).setFill()
-                UIRectFill(CGRect(origin: .zero, size: outputSize))
-            }
-        }
-
-        // ③ UIImage → CVPixelBuffer
-        return try pixelBuffer(from: finalImage, outputSize: outputSize, poolRef: poolRef)
-    }
-
-    private static func pixelBuffer(
-        from image: UIImage,
-        outputSize: CGSize,
-        poolRef: CVPixelBufferPool?
     ) throws -> CVPixelBuffer {
         var pbOpt: CVPixelBuffer?
         if let pool = poolRef {
@@ -256,10 +220,38 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
             bitmapInfo:       CGImageAlphaInfo.premultipliedFirst.rawValue
                               | CGBitmapInfo.byteOrder32Little.rawValue
         ) else { throw VideoExportError.renderingFailed }
-        if let cgImg = image.cgImage {
-            ctx.draw(cgImg, in: CGRect(origin: .zero, size: outputSize))
+
+        let frameRect = CGRect(origin: .zero, size: outputSize)
+        ctx.setFillColor(bgColor.cgColor)
+        ctx.fill(frameRect)
+
+        switch spec.content {
+        case .overview:
+            // キャンバス全体を width fit で中央揃え
+            let sc = outputSize.width / fullImageSize.width
+            let dw = outputSize.width
+            let dh = fullImageSize.height * sc
+            let dy = (outputSize.height - dh) / 2
+            ctx.draw(fullCGImage, in: CGRect(x: 0, y: dy, width: dw, height: dh))
+        case .strip(let cr):
+            // source crop を作らず、スケール+オフセットで直接描画
+            guard cr.width > 0, cr.height > 0 else { break }
+            let sx = outputSize.width / cr.width
+            let sy = outputSize.height / cr.height
+            let drawRect = CGRect(
+                x: -cr.origin.x * sx,
+                y: -cr.origin.y * sy,
+                width: fullImageSize.width * sx,
+                height: fullImageSize.height * sy
+            )
+            ctx.draw(fullCGImage, in: drawRect)
         }
+
+        if spec.alpha < 0.999 {
+            ctx.setFillColor(UIColor.black.withAlphaComponent(1 - spec.alpha).cgColor)
+            ctx.fill(frameRect)
+        }
+
         return pb
     }
 }
-
