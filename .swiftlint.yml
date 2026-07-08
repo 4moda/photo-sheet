@@ -1,0 +1,10 @@
+included:
+  - PhotoSheet
+  - PhotoSheetTests
+
+line_length:
+  warning: 140
+  error: 200
+
+identifier_name:
+  min_length: 2

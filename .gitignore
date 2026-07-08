@@ -1,0 +1,14 @@
+# XcodeGen で生成されるため .xcodeproj はコミットしない
+*.xcodeproj/
+
+# Xcode
+xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+*.ipa
+*.dSYM.zip
+.swiftpm/
+
+# macOS
+.DS_Store
