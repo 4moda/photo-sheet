@@ -21,6 +21,8 @@ final class SheetEditorViewModel {
     var sheet = Sheet(photos: [], layout: .default)
     var isImporting = false
     var isExporting = false
+    /// 動画書き出し進捗（nil = 非書き出し中, 0.0〜1.0 = 書き出し中）
+    var exportProgress: Double?
     var errorMessage: String?
     var infoMessage: String?
     var shareImage: UIImage?
@@ -206,9 +208,14 @@ final class SheetEditorViewModel {
         guard !sheet.photos.isEmpty else { return }
         Task {
             isExporting = true
-            defer { isExporting = false }
+            exportProgress = 0.0
+            defer { isExporting = false; exportProgress = nil }
             do {
-                try await exportVideoUseCase.saveToLibrary(sheet: sheet, config: videoConfig)
+                try await exportVideoUseCase.saveToLibrary(
+                    sheet: sheet,
+                    config: videoConfig,
+                    onProgress: { @MainActor [weak self] p in self?.exportProgress = p }
+                )
                 infoMessage = "動画を保存しました"
             } catch let error as VideoExportError {
                 errorMessage = videoErrorMessage(error)
@@ -223,9 +230,14 @@ final class SheetEditorViewModel {
         guard !sheet.photos.isEmpty else { return }
         Task {
             isExporting = true
-            defer { isExporting = false }
+            exportProgress = 0.0
+            defer { isExporting = false; exportProgress = nil }
             do {
-                let url = try await exportVideoUseCase.render(sheet: sheet, config: videoConfig)
+                let url = try await exportVideoUseCase.render(
+                    sheet: sheet,
+                    config: videoConfig,
+                    onProgress: { @MainActor [weak self] p in self?.exportProgress = p }
+                )
                 shareVideoURL = url
                 isVideoSharePresented = true
             } catch let error as VideoExportError {

@@ -28,7 +28,12 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
     // MARK: - SheetVideoRenderer
 
     @MainActor
-    func renderVideo(sheet: Sheet, config: VideoExportConfig, outputURL: URL) async throws {
+    func renderVideo(
+        sheet: Sheet,
+        config: VideoExportConfig,
+        outputURL: URL,
+        onProgress: @Sendable (Double) async -> Void
+    ) async throws {
         let canvasWidth = CGFloat(Self.outputWidth)
 
         // 1. キャンバス全体を一度だけレンダリング
@@ -42,7 +47,7 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
 
         // 2. ストリップのジオメトリを計算
         let outputSize = CGSize(width: Self.outputWidth, height: Self.outputHeight)
-        let strips = Self.computeStrips(sheet: sheet, canvasWidth: canvasWidth, config: config)
+        let strips = VideoExportGeometry.computeStrips(sheet: sheet, canvasWidth: canvasWidth, config: config)
 
         // 3. 背景色
         let bgColor = UIColor(
@@ -54,11 +59,13 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
 
         // 4. フレーム仕様リストを事前構築（メモリ効率: UIImage は一枚だけ保持）
         let fps = Self.fps
-        let specs = Self.buildFrameSpecs(config: config, strips: strips,
-                                         canvasWidth: canvasWidth,
-                                         canvasHeight: fullImage.size.height,
-                                         outputSize: outputSize,
-                                         fps: Double(fps))
+        let specs = VideoExportGeometry.buildFrameSpecs(
+            config: config, strips: strips,
+            canvasWidth: canvasWidth,
+            canvasHeight: fullImage.size.height,
+            outputSize: outputSize,
+            fps: Double(fps)
+        )
 
         guard !specs.isEmpty else { throw VideoExportError.renderingFailed }
 
@@ -69,216 +76,24 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
             outputSize: outputSize,
             bgColor:    bgColor,
             fps:        fps,
-            outputURL:  outputURL
+            outputURL:  outputURL,
+            onProgress: onProgress
         )
-    }
-
-    // MARK: - ストリップジオメトリ
-
-/// 行をグループ化した「ストリップ」のキャンバス内 Y 範囲（行の正確な境界）
-    struct StripGeometry {
-        /// 最初の行のトップ Y 座標（canvas 座標、margin 込み）
-        let yStart: CGFloat
-        /// 最後の行のボトム Y 座標（canvas 座標、margin 込みではない）
-        let yEnd: CGFloat
-        var canvasHeight: CGFloat { yEnd - yStart }
-    }
-
-    /// ブリード込みの表示ジオメトリ（`buildFrameSpecs` 内で使用）
-    private struct DisplayGeom {
-        var yStart: CGFloat
-        var height: CGFloat
-        var pan:    CGFloat
-        var panDur: Double
-    }
-
-    private static func computeStrips(
-        sheet: Sheet,
-        canvasWidth: CGFloat,
-        config: VideoExportConfig
-    ) -> [StripGeometry] {
-        let layout = sheet.layout
-        let w = Double(canvasWidth)
-        let ranges = SheetLayoutMath.rowRanges(photoCount: sheet.photos.count, columns: layout.columns)
-        guard !ranges.isEmpty else { return [] }
-
-        let margin  = CGFloat(SheetLayoutMath.margin(layout, width: w))
-        let spacing = CGFloat(SheetLayoutMath.spacing(layout, width: w))
-
-        // 各行の Y 位置と高さを計算
-        var rowTops: [CGFloat] = []
-        var rowHeights: [CGFloat] = []
-        var y = margin
-        if SheetLayoutMath.hasHeader(sheet) {
-            y += CGFloat(SheetLayoutMath.headerHeight(sheet, width: w)) + spacing
-        }
-        for rowRange in ranges {
-            let photos = Array(sheet.photos[rowRange])
-            let h: CGFloat
-            switch layout.style {
-            case .grid:
-                let cw = CGFloat(SheetLayoutMath.gridCellWidth(layout, width: w))
-                h = CGFloat(SheetLayoutMath.gridRowHeight(photos, layout: layout, cellWidth: Double(cw)))
-            case .filmStrip:
-                let fw = CGFloat(SheetLayoutMath.filmFrameWidth(layout, width: w))
-                h = CGFloat(SheetLayoutMath.filmStripHeight(
-                    frameWidth: Double(fw),
-                    frameAspect: layout.filmFormat.frameAspect
-                ))
-            }
-            rowTops.append(y)
-            rowHeights.append(h)
-            y += h + spacing
-        }
-
-        // visibleRows 行単位でストリップに分割（行の正確な境界を記録）
-        let step = max(1, config.visibleRows)
-        var strips: [StripGeometry] = []
-        var i = 0
-        while i < ranges.count {
-            let endIdx = min(i + step - 1, ranges.count - 1)
-            strips.append(StripGeometry(yStart: rowTops[i], yEnd: rowTops[endIdx] + rowHeights[endIdx]))
-            i += step
-        }
-        return strips
-    }
-
-    // MARK: - フレーム仕様リスト
-
-    /// 各フレームの描画命令（UIImage は保持しない）
-    struct FrameSpec {
-        enum Content {
-            /// 全体俯瞰（canvas全体を outputWidth 幅に fit, 縦中央揃え）
-            case overview
-            /// ストリップ: キャンバス内のクロップ領域（キャンバス座標）を outputSize に引き伸ばす
-            case strip(cropRect: CGRect)
-        }
-        var content: Content
-        var alpha: CGFloat  // 0=黒, 1=完全表示
-    }
-
-    private static func buildFrameSpecs(
-        config: VideoExportConfig,
-        strips: [StripGeometry],
-        canvasWidth: CGFloat,
-        canvasHeight: CGFloat,
-        outputSize: CGSize,
-        fps: Double
-    ) -> [FrameSpec] {
-        var specs: [FrameSpec] = []
-        let overviewDur  = 2.0
-        let fadeEdgeDur  = 0.4   // 概要フェーズへのフェード
-        let fadeStripDur = 0.3   // ストリップ間フェード
-
-        func frames(_ dur: Double) -> Int { max(1, Int(dur * fps)) }
-
-        /// ブリード込みの表示ジオメトリを計算する（隣接行の端が少し見える）
-        let bleedFraction: CGFloat = 0.2   // 行高さの 20% を上下に滲み出させる
-        func displayGeom(_ strip: StripGeometry) -> DisplayGeom {
-            let bleedPx = strip.canvasHeight * bleedFraction
-            let dyStart = max(0, strip.yStart - bleedPx)
-            let dyEnd   = min(canvasHeight, strip.yEnd + bleedPx)
-            let dh      = max(1, dyEnd - dyStart)
-            let sc      = outputSize.height / dh
-            let cropW   = outputSize.width / sc
-            let panAmt  = max(0, canvasWidth - cropW)
-            let panDur  = max(0.5, Double(panAmt) / config.speed.canvasPixelsPerSecond)
-            return DisplayGeom(yStart: dyStart, height: dh, pan: panAmt, panDur: panDur)
-        }
-
-        func cropRect(yStart: CGFloat, height: CGFloat, xOffset: CGFloat) -> CGRect {
-            let sc    = outputSize.height / max(1, height)
-            let cropW = min(outputSize.width / sc, canvasWidth - xOffset)
-            return CGRect(x: xOffset, y: yStart, width: max(1, cropW), height: height)
-        }
-
-        // ─── 概要（冒頭） ───────────────────────────────────────────
-        if config.showOverview {
-            for _ in 0..<frames(overviewDur) {
-                specs.append(.init(content: .overview, alpha: 1))
-            }
-            // フェードアウト
-            let n = frames(fadeEdgeDur)
-            for i in 0..<n {
-                specs.append(.init(content: .overview, alpha: CGFloat(1 - Double(i) / Double(n))))
-            }
-        }
-
-        // ─── ストリップ ────────────────────────────────────────────
-        for (si, strip) in strips.enumerated() {
-            let geom = displayGeom(strip)
-
-            // フェードイン
-            let fadeInFrames: Int
-            if si == 0 && config.showOverview {
-                fadeInFrames = frames(fadeEdgeDur)
-            } else if si > 0 {
-                fadeInFrames = frames(fadeStripDur)
-            } else {
-                fadeInFrames = 0
-            }
-            for idx in 0..<fadeInFrames {
-                let alpha = CGFloat(Double(idx) / Double(max(1, fadeInFrames)))
-                specs.append(.init(content: .strip(cropRect: cropRect(yStart: geom.yStart, height: geom.height, xOffset: 0)), alpha: alpha))
-            }
-
-            // パン本体
-            let panFrames = frames(geom.panDur)
-            for idx in 0..<panFrames {
-                let progress = panFrames > 1 ? Double(idx) / Double(panFrames - 1) : 0
-                let xOff = CGFloat(easeInOut(progress)) * geom.pan
-                specs.append(.init(content: .strip(cropRect: cropRect(yStart: geom.yStart, height: geom.height, xOffset: xOff)), alpha: 1))
-            }
-
-            // フェードアウト
-            let isLast = si == strips.count - 1
-            let fadeOutFrames: Int
-            if isLast && config.showOverview {
-                fadeOutFrames = frames(fadeEdgeDur)
-            } else if !isLast {
-                fadeOutFrames = frames(fadeStripDur)
-            } else {
-                fadeOutFrames = 0
-            }
-            for idx in 0..<fadeOutFrames {
-                let alpha = CGFloat(1 - Double(idx) / Double(max(1, fadeOutFrames)))
-                specs.append(.init(content: .strip(cropRect: cropRect(yStart: geom.yStart, height: geom.height, xOffset: geom.pan)), alpha: alpha))
-            }
-        }
-
-        // ─── 概要（末尾） ───────────────────────────────────────────
-        if config.showOverview {
-            // フェードイン
-            let n = frames(fadeEdgeDur)
-            for i in 0..<n {
-                specs.append(.init(content: .overview, alpha: CGFloat(Double(i) / Double(n))))
-            }
-            for _ in 0..<frames(overviewDur) {
-                specs.append(.init(content: .overview, alpha: 1))
-            }
-        }
-
-        return specs
-    }
-
-    // MARK: - イージング
-
-    private static func easeInOut(_ t: Double) -> Double {
-        t < 0.5 ? 2 * t * t : 1 - pow(-2 * t + 2, 2) / 2
     }
 
     // MARK: - MP4 書き出し
 
     /// AVAssetWriter で MP4 を書き出す。
-    /// DispatchSemaphore の代わりに withCheckedThrowingContinuation を使い、
-    /// Swift 協調スレッドプールをブロックしない。
+    /// requestMediaDataWhenReady の代わりに async ループを使い、
+    /// コールバックが呼ばれない Simulator 上のハングを回避する。
     private static func writeMP4(
-        specs:      [FrameSpec],
+        specs:      [VideoExportGeometry.FrameSpec],
         fullImage:  UIImage,
         outputSize: CGSize,
         bgColor:    UIColor,
         fps:        Int32,
-        outputURL:  URL
+        outputURL:  URL,
+        onProgress: @Sendable (Double) async -> Void
     ) async throws {
         if FileManager.default.fileExists(atPath: outputURL.path) {
             try FileManager.default.removeItem(at: outputURL)
@@ -300,8 +115,7 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
         let pbAttrs: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
             kCVPixelBufferWidthKey          as String: Int(outputSize.width),
-            kCVPixelBufferHeightKey         as String: Int(outputSize.height),
-            kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+            kCVPixelBufferHeightKey         as String: Int(outputSize.height)
         ]
         let adaptor = AVAssetWriterInputPixelBufferAdaptor(
             assetWriterInput: writerInput,
@@ -309,47 +123,52 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
         )
         guard writer.canAdd(writerInput) else { throw VideoExportError.writingFailed }
         writer.add(writerInput)
-        writer.startWriting()
+        guard writer.startWriting() else {
+            throw writer.error ?? VideoExportError.writingFailed
+        }
         writer.startSession(atSourceTime: .zero)
 
-        var frameIndex = 0
-        let timeScale  = CMTimeScale(fps)
+        let timeScale = CMTimeScale(fps)
+        let total = specs.count
 
-        // continuation で Main Actor を解放したまま書き出しを待機
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            var finished = false
-            func complete(_ result: Result<Void, Error>) {
-                guard !finished else { return }
-                finished = true
-                cont.resume(with: result)
+        // フレームを順次書き込む（30 フレームごとに yield・進捗報告）
+        for (frameIdx, spec) in specs.enumerated() {
+            if frameIdx % 30 == 0 {
+                await Task.yield()
+                await onProgress(Double(frameIdx) / Double(max(1, total)))
             }
 
-            writerInput.requestMediaDataWhenReady(on: DispatchQueue(label: "photo.sheet.videowriter")) {
-                while writerInput.isReadyForMoreMediaData {
-                    if frameIndex >= specs.count {
-                        writerInput.markAsFinished()
-                        writer.finishWriting {
-                            complete(writer.status == .completed
-                                     ? .success(()) : .failure(VideoExportError.writingFailed))
-                        }
-                        return
-                    }
-                    do {
-                        let pb = try makePixelBuffer(
-                            spec:       specs[frameIndex],
-                            fullImage:  fullImage,
-                            outputSize: outputSize,
-                            bgColor:    bgColor,
-                            poolRef:    adaptor.pixelBufferPool
-                        )
-                        let pts = CMTime(value: CMTimeValue(frameIndex), timescale: timeScale)
-                        adaptor.append(pb, withPresentationTime: pts)
-                        frameIndex += 1
-                    } catch {
-                        writerInput.markAsFinished()
-                        writer.finishWriting { complete(.failure(error)) }
-                        return
-                    }
+            // isReadyForMoreMediaData が false の間は待機（バッファがいっぱいのとき）
+            var spinCount = 0
+            while !writerInput.isReadyForMoreMediaData {
+                await Task.yield()
+                spinCount += 1
+                if spinCount > 500 { throw VideoExportError.writingFailed }
+            }
+
+            let pb = try makePixelBuffer(
+                spec:       spec,
+                fullImage:  fullImage,
+                outputSize: outputSize,
+                bgColor:    bgColor,
+                poolRef:    adaptor.pixelBufferPool
+            )
+            let pts = CMTime(value: CMTimeValue(frameIdx), timescale: timeScale)
+            guard adaptor.append(pb, withPresentationTime: pts) else {
+                throw writer.error ?? VideoExportError.writingFailed
+            }
+        }
+
+        writerInput.markAsFinished()
+        await onProgress(1.0)
+
+        // finishWriting は非同期コールバック → continuation でラップ
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            writer.finishWriting {
+                if writer.status == .completed {
+                    cont.resume()
+                } else {
+                    cont.resume(throwing: writer.error ?? VideoExportError.writingFailed)
                 }
             }
         }
@@ -358,7 +177,7 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
     // MARK: - ピクセルバッファ生成
 
     private static func makePixelBuffer(
-        spec:       FrameSpec,
+        spec:       VideoExportGeometry.FrameSpec,
         fullImage:  UIImage,
         outputSize: CGSize,
         bgColor:    UIColor,

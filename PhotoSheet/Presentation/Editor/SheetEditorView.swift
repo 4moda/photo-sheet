@@ -69,8 +69,10 @@ struct SheetEditorView: View {
             Button("OK", role: .cancel) {}
         }
         .overlay {
-            if viewModel.isImporting || viewModel.isExporting {
-                loadingOverlay
+            if viewModel.isImporting {
+                loadingOverlay(label: "読み込み中…", progress: nil)
+            } else if viewModel.isExporting {
+                loadingOverlay(label: "書き出し中…", progress: viewModel.exportProgress)
             }
         }
         .onDisappear {
@@ -157,13 +159,29 @@ struct SheetEditorView: View {
         }
     }
 
-    private var loadingOverlay: some View {
+    private func loadingOverlay(label: String, progress: Double?) -> some View {
         ZStack {
-            Color.black.opacity(0.2).ignoresSafeArea()
-            ProgressView()
-                .controlSize(.large)
-                .padding(24)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            Color.black.opacity(0.35).ignoresSafeArea()
+            VStack(spacing: 16) {
+                if let progress {
+                    // 動画書き出し：進捗バー表示
+                    VStack(spacing: 8) {
+                        ProgressView(value: progress)
+                            .progressViewStyle(.linear)
+                            .frame(width: 200)
+                        Text("\(Int(progress * 100))%")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    ProgressView()
+                        .controlSize(.large)
+                }
+                Text(label)
+                    .font(.subheadline.weight(.medium))
+            }
+            .padding(24)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
     }
 
