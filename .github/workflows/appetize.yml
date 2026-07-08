@@ -26,7 +26,9 @@ jobs:
           fi
 
       - name: Install XcodeGen
-        run: brew install xcodegen
+        run: |
+          brew untap aws/tap 2>/dev/null || true
+          brew install xcodegen
 
       - name: Generate Xcode project
         run: xcodegen generate

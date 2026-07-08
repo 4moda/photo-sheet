@@ -57,3 +57,13 @@ extension PaperFormat {
         }
     }
 }
+
+extension VideoExportConfig.Speed {
+    var displayName: String {
+        switch self {
+        case .slow:   "ゆっくり"
+        case .medium: "ふつう"
+        case .fast:   "はやく"
+        }
+    }
+}

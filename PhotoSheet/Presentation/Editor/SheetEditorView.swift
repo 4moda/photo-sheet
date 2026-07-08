@@ -52,6 +52,17 @@ struct SheetEditorView: View {
                 ActivityView(activityItems: [image])
             }
         }
+        .sheet(isPresented: $viewModel.isVideoSharePresented, onDismiss: {
+            // 共有完了後に一時ファイルを削除する
+            if let url = viewModel.shareVideoURL {
+                try? FileManager.default.removeItem(at: url)
+                viewModel.shareVideoURL = nil
+            }
+        }) {
+            if let url = viewModel.shareVideoURL {
+                ActivityView(activityItems: [url])
+            }
+        }
         .alert("エラー", isPresented: errorBinding) {
             Button("OK", role: .cancel) {}
         } message: {

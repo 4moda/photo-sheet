@@ -21,8 +21,10 @@ final class AppContainer {
     @MainActor
     func makeSheetEditorViewModel(project: SheetProject) -> SheetEditorViewModel {
         let cache = imageCache
-        // レンダラー（Data 層）には Presentation のキャンバスビューをビルダーとして注入する
         let renderer = SwiftUISheetRenderer { sheet, width in
+            AnyView(SheetCanvasView(sheet: sheet, width: width, imageCache: cache))
+        }
+        let videoRenderer = AVFoundationVideoExporter { sheet, width in
             AnyView(SheetCanvasView(sheet: sheet, width: width, imageCache: cache))
         }
         return SheetEditorViewModel(
@@ -30,6 +32,10 @@ final class AppContainer {
             importPhotosUseCase: ImportPhotosUseCase(repository: DefaultPhotoSourceRepository()),
             buildSheetUseCase: BuildSheetUseCase(),
             exportSheetUseCase: ExportSheetUseCase(renderer: renderer, saver: PhotoLibraryService()),
+            exportVideoUseCase: ExportSheetVideoUseCase(
+                renderer: videoRenderer,
+                saver: PhotoLibraryVideoSaver()
+            ),
             imageCache: cache,
             projectRepository: projectRepository
         )

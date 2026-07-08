@@ -10,6 +10,7 @@ final class SheetEditorViewModel {
     private let importPhotosUseCase: ImportPhotosUseCase
     private let buildSheetUseCase: BuildSheetUseCase
     private let exportSheetUseCase: ExportSheetUseCase
+    private let exportVideoUseCase: ExportSheetVideoUseCase
     private let imageCache: PhotoImageCache
     private let projectRepository: SheetProjectRepository
 
@@ -24,6 +25,11 @@ final class SheetEditorViewModel {
     var infoMessage: String?
     var shareImage: UIImage?
     var isSharePresented = false
+    /// 動画書き出し設定（フローティングバーの動画パネルで変更）
+    var videoConfig = VideoExportConfig.default
+    /// 共有する動画ファイルの URL（セット → shareSheet 表示）
+    var shareVideoURL: URL?
+    var isVideoSharePresented = false
 
     /// PhotosPicker の選択。セットされたら即座に取り込みを開始する。
     var pickerItems: [PhotosPickerItem] = [] {
@@ -40,6 +46,7 @@ final class SheetEditorViewModel {
         importPhotosUseCase: ImportPhotosUseCase,
         buildSheetUseCase: BuildSheetUseCase,
         exportSheetUseCase: ExportSheetUseCase,
+        exportVideoUseCase: ExportSheetVideoUseCase,
         imageCache: PhotoImageCache,
         projectRepository: SheetProjectRepository
     ) {
@@ -49,6 +56,7 @@ final class SheetEditorViewModel {
         self.importPhotosUseCase = importPhotosUseCase
         self.buildSheetUseCase = buildSheetUseCase
         self.exportSheetUseCase = exportSheetUseCase
+        self.exportVideoUseCase = exportVideoUseCase
         self.imageCache = imageCache
         self.projectRepository = projectRepository
         // 前のプロジェクトの画像キャッシュを持ち越さない
@@ -193,6 +201,41 @@ final class SheetEditorViewModel {
         }
     }
 
+    /// 動画をカメラロールへ保存する
+    func saveVideoToPhotoLibrary() {
+        guard !sheet.photos.isEmpty else { return }
+        Task {
+            isExporting = true
+            defer { isExporting = false }
+            do {
+                try await exportVideoUseCase.saveToLibrary(sheet: sheet, config: videoConfig)
+                infoMessage = "動画を保存しました"
+            } catch let error as VideoExportError {
+                errorMessage = videoErrorMessage(error)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    /// 動画をレンダリングして共有シートを表示する
+    func presentVideoShareSheet() {
+        guard !sheet.photos.isEmpty else { return }
+        Task {
+            isExporting = true
+            defer { isExporting = false }
+            do {
+                let url = try await exportVideoUseCase.render(sheet: sheet, config: videoConfig)
+                shareVideoURL = url
+                isVideoSharePresented = true
+            } catch let error as VideoExportError {
+                errorMessage = videoErrorMessage(error)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
     // MARK: - Formatters
 
     /// インデックスプリントの日付表記風（例: 2026.07.08）
@@ -218,6 +261,15 @@ final class SheetEditorViewModel {
         case .renderingFailed: "画像の生成に失敗しました"
         case .authorizationDenied: "写真への追加が許可されていません。設定アプリから許可してください"
         case .saveFailed: "写真への保存に失敗しました"
+        }
+    }
+
+    private func videoErrorMessage(_ error: VideoExportError) -> String {
+        switch error {
+        case .renderingFailed: "動画の生成に失敗しました"
+        case .writingFailed: "動画の書き出しに失敗しました"
+        case .authorizationDenied: "写真への追加が許可されていません。設定アプリから許可してください"
+        case .saveFailed: "動画の保存に失敗しました"
         }
     }
 }

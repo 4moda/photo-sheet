@@ -14,6 +14,8 @@ struct FloatingControlBar: View {
         case paper
         /// タイトル・サブタイトル
         case text
+        /// スクロール動画の書き出し設定
+        case video
 
         var id: String { rawValue }
 
@@ -22,6 +24,7 @@ struct FloatingControlBar: View {
             case .appearance: "square.grid.3x3"
             case .paper: "rectangle.portrait"
             case .text: "textformat"
+            case .video: "film.stack"
             }
         }
 
@@ -30,6 +33,7 @@ struct FloatingControlBar: View {
             case .appearance: "見た目"
             case .paper: "用紙"
             case .text: "タイトル"
+            case .video: "動画"
             }
         }
     }
@@ -128,6 +132,8 @@ struct FloatingControlBar: View {
                 .textFieldStyle(.roundedBorder)
             TextField("サブタイトル（日付・ロール番号など）", text: $viewModel.sheet.caption)
                 .textFieldStyle(.roundedBorder)
+        case .video:
+            videoPanel
         }
     }
 
@@ -259,5 +265,81 @@ struct FloatingControlBar: View {
             get: { Color(rgba: viewModel.sheet.layout.background.color) },
             set: { viewModel.sheet.layout.background = .custom(RGBAColor(color: $0)) }
         )
+    }
+
+    // MARK: - 動画パネル
+
+    @ViewBuilder
+    private var videoPanel: some View {
+        // スクロール速度
+        labeledRow("速度") {
+            Picker("速度", selection: $viewModel.videoConfig.speed) {
+                ForEach(VideoExportConfig.Speed.allCases, id: \.self) { s in
+                    Text(s.displayName).tag(s)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+
+        // 表示行数（ズーム）
+        labeledRow("表示行数") {
+            HStack(spacing: 10) {
+                Button {
+                    viewModel.videoConfig.visibleRows = max(1, viewModel.videoConfig.visibleRows - 1)
+                } label: {
+                    Image(systemName: "minus.circle")
+                        .font(.title3)
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.videoConfig.visibleRows <= 1)
+
+                Text("\(viewModel.videoConfig.visibleRows)行")
+                    .frame(minWidth: 36)
+                    .monospacedDigit()
+
+                Button {
+                    viewModel.videoConfig.visibleRows = min(8, viewModel.videoConfig.visibleRows + 1)
+                } label: {
+                    Image(systemName: "plus.circle")
+                        .font(.title3)
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.videoConfig.visibleRows >= 8)
+
+                Spacer()
+            }
+        }
+
+        // 全体フェーズ
+        labeledRow("全体表示") {
+            Toggle("前後に全体表示", isOn: $viewModel.videoConfig.showOverview)
+                .labelsHidden()
+        }
+
+        // 操作ボタン
+        HStack(spacing: 12) {
+            Button {
+                viewModel.saveVideoToPhotoLibrary()
+            } label: {
+                Label("動画を保存", systemImage: "square.and.arrow.down")
+                    .font(.subheadline)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(viewModel.isExporting || viewModel.sheet.photos.isEmpty)
+
+            Button {
+                viewModel.presentVideoShareSheet()
+            } label: {
+                Label("共有", systemImage: "square.and.arrow.up")
+                    .font(.subheadline)
+            }
+            .buttonStyle(.bordered)
+            .disabled(viewModel.isExporting || viewModel.sheet.photos.isEmpty)
+
+            if viewModel.isExporting {
+                ProgressView()
+                    .controlSize(.small)
+            }
+        }
     }
 }
