@@ -1,0 +1,45 @@
+name: Device Build (unsigned IPA)
+
+# 実機確認用の未署名 IPA を生成する。
+# ダウンロードした IPA を Sideloadly / AltStore で無料 Apple ID 署名して実機にインストールする。
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    name: Build unsigned IPA
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build for iOS device (unsigned)
+        run: |
+          xcodebuild build \
+            -project PhotoSheet.xcodeproj \
+            -scheme PhotoSheet \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R "DerivedData/Build/Products/Release-iphoneos/PhotoSheet.app" Payload/
+          zip -qry "PhotoSheet-unsigned-${{ github.run_number }}.ipa" Payload
+          ls -lh *.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoSheet-unsigned-ipa
+          path: "*.ipa"
+          retention-days: 14
