@@ -44,5 +44,12 @@ jobs:
             -enableCodeCoverage YES \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO
+      - name: Upload snapshot reference images (for first-time recording)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-images
+          path: PhotoSheetSnapshotTests/__Snapshots__/
+          if-no-files-found: ignore
       - name: Coverage gate (Domain >= 80%)
         run: bash scripts/coverage-gate.sh TestResults.xcresult 80

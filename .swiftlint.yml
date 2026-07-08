@@ -1,6 +1,7 @@
 included:
   - PhotoSheet
   - PhotoSheetTests
+  - PhotoSheetSnapshotTests
 
 line_length:
   warning: 140

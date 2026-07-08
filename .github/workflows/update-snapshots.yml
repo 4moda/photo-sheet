@@ -1,0 +1,40 @@
+name: Update Snapshots
+
+# スナップショットの参照画像を CI で再生成するための手動ワークフロー。
+# 実行手順:
+#   1. GitHub Actions > Update Snapshots > Run workflow
+#   2. 完了後、Artifacts の `snapshot-images` をダウンロード
+#   3. PhotoSheetSnapshotTests/__Snapshots__/SheetCanvasViewSnapshotTests/ に展開してコミット
+
+on:
+  workflow_dispatch:
+
+jobs:
+  record:
+    name: Record Snapshots
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Record snapshots
+        run: |
+          xcodebuild test \
+            -project PhotoSheet.xcodeproj \
+            -scheme PhotoSheet \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -only-testing PhotoSheetSnapshotTests \
+            CODE_SIGNING_ALLOWED=NO \
+            TEST_RUNNER_RECORD_SNAPSHOTS=true \
+          || true  # record モードは必ず失敗するため終了コードを無視する
+
+      - name: Upload recorded snapshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-images
+          path: PhotoSheetSnapshotTests/__Snapshots__/

@@ -46,6 +46,25 @@ scripts/test-core.sh          # コアのテストが数秒で回る。コア変
 - コミットメッセージは日本語。AI が作成したコミットには `Co-Authored-By` を付ける。
 - Private リポジトリでは macOS ランナーの分数消費が 10 倍。push 1 回 ≈ 課金換算 60 分（無料枠 2,000 分/月）。**細かい push を連発せず、変更をまとめてから push**。
 
+## スナップショットテスト（キャンバス描画の回帰検知）
+
+`PhotoSheetSnapshotTests/SheetCanvasViewSnapshotTests.swift` が `SheetCanvasView` の描画を画像として記録し、CI で自動比較する。
+
+### 参照画像を初回生成 / 更新する手順
+
+1. **GitHub Actions > Update Snapshots > Run workflow** を手動実行（`workflow_dispatch`）
+2. 完了後、該当 run の Artifacts から `snapshot-images.zip` をダウンロード
+3. 展開して `PhotoSheetSnapshotTests/__Snapshots__/SheetCanvasViewSnapshotTests/` に配置
+4. コミット・push（次の CI からは比較モードで動く）
+
+### レイアウトを意図的に変えたとき
+
+CI の `Build & Test` が snapshot failure で落ちる → 上記の手順で参照画像を更新してコミット。
+
+### ローカル（Mac + Xcode）で確認したいとき
+
+Xcode のスキームに環境変数 `RECORD_SNAPSHOTS = true` を追加して実行 → `__Snapshots__/` に画像が生成される。
+
 ## Definition of Done（タスク完了の条件）
 
 - [ ] コア変更なら `scripts/test-core.sh` がローカルで成功

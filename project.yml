@@ -10,6 +10,9 @@ packages:
   ZIPFoundation:
     url: https://github.com/weichsel/ZIPFoundation
     from: 0.9.19
+  SnapshotTesting:
+    url: https://github.com/pointfreeco/swift-snapshot-testing
+    from: 1.17.0
 targets:
   PhotoSheet:
     type: application
@@ -42,6 +45,14 @@ targets:
       - PhotoSheetTests
     dependencies:
       - target: PhotoSheet
+  PhotoSheetSnapshotTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - PhotoSheetSnapshotTests
+    dependencies:
+      - target: PhotoSheet
+      - package: SnapshotTesting
 schemes:
   PhotoSheet:
     build:
@@ -50,3 +61,4 @@ schemes:
     test:
       targets:
         - PhotoSheetTests
+        - PhotoSheetSnapshotTests
