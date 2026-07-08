@@ -7,6 +7,8 @@ struct SheetCanvasView: View {
     let sheet: Sheet
     let width: CGFloat
     let imageCache: PhotoImageCache
+    /// エディタから渡される削除ハンドラ。nil のとき（書き出し時）は操作 UI を一切付けない。
+    var onDeletePhoto: ((UUID) -> Void)?
 
     private var layout: LayoutConfig { sheet.layout }
     private var margin: Double { SheetLayoutMath.margin(layout, width: width) }
@@ -92,6 +94,7 @@ struct SheetCanvasView: View {
                 cellWidth: cellWidth,
                 height: SheetLayoutMath.gridPhotoHeight(photo, layout: layout, cellWidth: cellWidth)
             )
+            .deleteContextMenu(for: photo, onDelete: onDeletePhoto)
             if layout.showFilename {
                 Text(photo.fileName)
                     .font(.system(size: cellWidth * 0.08, design: .monospaced))
@@ -118,7 +121,8 @@ struct SheetCanvasView: View {
                 contentWidth: contentWidth,
                 separator: separator,
                 edgeText: layout.filmEdgeText,
-                imageCache: imageCache
+                imageCache: imageCache,
+                onDeletePhoto: onDeletePhoto
             )
         }
     }
@@ -147,6 +151,24 @@ struct SheetCanvasView: View {
     }
 }
 
+private extension View {
+    /// 削除ハンドラがあるときだけ長押しの削除メニューを付ける（書き出し時は素通し）
+    @ViewBuilder
+    func deleteContextMenu(for photo: SheetPhoto, onDelete: ((UUID) -> Void)?) -> some View {
+        if let onDelete {
+            contextMenu {
+                Button(role: .destructive) {
+                    onDelete(photo.id)
+                } label: {
+                    Label("この写真を削除", systemImage: "trash")
+                }
+            }
+        } else {
+            self
+        }
+    }
+}
+
 /// ベタ焼きの 1 ストリップ（黒いレベート帯 + エッジテキスト + スプロケット穴 + コマ番号）
 private struct FilmStripRow: View {
     let photos: [SheetPhoto]
@@ -157,6 +179,7 @@ private struct FilmStripRow: View {
     let separator: Double
     let edgeText: String
     let imageCache: PhotoImageCache
+    let onDeletePhoto: ((UUID) -> Void)?
 
     /// フィルムベースの黒（純黒より僅かに浮かせて「焼かれた黒」に寄せる）
     private static let filmBlack = Color(red: 0.043, green: 0.043, blue: 0.05)
@@ -216,6 +239,7 @@ private struct FilmStripRow: View {
                 }
                 .frame(width: frameWidth, height: frameHeight)
                 .clipped()
+                .deleteContextMenu(for: photo, onDelete: onDeletePhoto)
             }
             Spacer(minLength: 0)
         }

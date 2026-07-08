@@ -39,4 +39,14 @@ final class ExportSheetUseCaseTests: XCTestCase {
 
         XCTAssertEqual(data, Data([0x89, 0x50]))
     }
+
+    func testDefaultPixelWidthFavorsSNSAndPrint() {
+        // SNS 想定: Instagram 表示解像度 1080 の 2 倍
+        XCTAssertEqual(ExportSheetUseCase.defaultPixelWidth(for: .flexible), 2160)
+        XCTAssertEqual(ExportSheetUseCase.defaultPixelWidth(for: .story9x16), 2160)
+        // 印刷系用紙: 8×10 で 300dpi 相当
+        XCTAssertEqual(ExportSheetUseCase.defaultPixelWidth(for: .print8x10), 2400)
+        XCTAssertEqual(ExportSheetUseCase.defaultPixelWidth(for: .print4x6), 2400)
+        XCTAssertEqual(ExportSheetUseCase.defaultPixelWidth(for: .a4), 2400)
+    }
 }

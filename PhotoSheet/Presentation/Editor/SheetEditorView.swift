@@ -10,6 +10,7 @@ struct SheetEditorView: View {
     @State private var showPhotosPicker = false
     @State private var showFolderImporter = false
     @State private var showZipImporter = false
+    @State private var showAddDialog = false
 
     init(viewModel: SheetEditorViewModel, imageCache: PhotoImageCache) {
         _viewModel = State(initialValue: viewModel)
@@ -30,6 +31,11 @@ struct SheetEditorView: View {
         }
         .fileImporter(isPresented: $showZipImporter, allowedContentTypes: [.zip]) { result in
             viewModel.importZip(result)
+        }
+        .confirmationDialog("写真を追加", isPresented: $showAddDialog) {
+            Button("フォトライブラリから") { showPhotosPicker = true }
+            Button("フォルダから") { showFolderImporter = true }
+            Button("ZIP ファイルから") { showZipImporter = true }
         }
         .sheet(isPresented: $viewModel.isSharePresented) {
             if let image = viewModel.shareImage {
@@ -63,20 +69,21 @@ struct SheetEditorView: View {
                     SheetCanvasView(
                         sheet: viewModel.sheet,
                         width: geometry.size.width,
-                        imageCache: imageCache
+                        imageCache: imageCache,
+                        onDeletePhoto: { viewModel.removePhoto($0) }
                     )
+                    // フローティングバーに隠れないよう下端に余白を確保
+                    .padding(.bottom, 96)
                 }
             }
-            .safeAreaInset(edge: .bottom) { bottomPanel }
+            .overlay(alignment: .bottom) {
+                FloatingControlBar(viewModel: viewModel) {
+                    showAddDialog = true
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
+            }
         }
-    }
-
-    private var bottomPanel: some View {
-        VStack(spacing: 0) {
-            ControlsView(viewModel: viewModel)
-            ExportBar(viewModel: viewModel)
-        }
-        .background(.regularMaterial)
     }
 
     private var emptyState: some View {
@@ -99,20 +106,28 @@ struct SheetEditorView: View {
                 Button {
                     showPhotosPicker = true
                 } label: {
-                    Label("フォトライブラリ", systemImage: "photo.on.rectangle")
+                    Label("フォトライブラリから追加", systemImage: "photo.on.rectangle")
                 }
                 Button {
                     showFolderImporter = true
                 } label: {
-                    Label("フォルダ", systemImage: "folder")
+                    Label("フォルダから追加", systemImage: "folder")
                 }
                 Button {
                     showZipImporter = true
                 } label: {
-                    Label("ZIP ファイル", systemImage: "doc.zipper")
+                    Label("ZIP ファイルから追加", systemImage: "doc.zipper")
+                }
+                if !viewModel.sheet.photos.isEmpty {
+                    Divider()
+                    Button(role: .destructive) {
+                        viewModel.removeAllPhotos()
+                    } label: {
+                        Label("すべての写真を削除", systemImage: "trash")
+                    }
                 }
             } label: {
-                Label("写真を追加", systemImage: "plus")
+                Label("メニュー", systemImage: "ellipsis.circle")
             }
         }
     }

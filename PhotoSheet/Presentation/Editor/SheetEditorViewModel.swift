@@ -65,9 +65,12 @@ final class SheetEditorViewModel {
     private func importPicked(_ items: [PhotosPickerItem]) async {
         isImporting = true
         var picked: [PickedPhotoData] = []
-        for item in items {
+        // 追加取り込みでもコマ番号が重複しないよう、既存枚数から連番を振る
+        let startNumber = sheet.photos.count + 1
+        for (offset, item) in items.enumerated() {
             if let data = try? await item.loadTransferable(type: Data.self) {
-                picked.append(PickedPhotoData(suggestedName: nil, data: data))
+                let name = String(format: "%02d", startNumber + offset)
+                picked.append(PickedPhotoData(suggestedName: name, data: data))
             }
         }
         isImporting = false
@@ -79,8 +82,12 @@ final class SheetEditorViewModel {
         defer { isImporting = false }
         do {
             let photos = try await importPhotosUseCase(source: source)
-            imageCache.removeAll()
-            sheet = buildSheetUseCase(photos: photos, basedOn: sheet)
+            if sheet.photos.isEmpty {
+                sheet = buildSheetUseCase(photos: photos, basedOn: sheet)
+            } else {
+                // 追加取り込み: ユーザーが調整済みのレイアウトを崩さない
+                sheet.photos.append(contentsOf: photos)
+            }
             if sheet.caption.isEmpty {
                 sheet.caption = Self.captionDateFormatter.string(from: Date())
             }
@@ -89,6 +96,18 @@ final class SheetEditorViewModel {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: - Photo management
+
+    func removePhoto(_ id: UUID) {
+        sheet.photos.removeAll { $0.id == id }
+        imageCache.remove(id)
+    }
+
+    func removeAllPhotos() {
+        sheet.photos = []
+        imageCache.removeAll()
     }
 
     // MARK: - Export

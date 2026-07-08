@@ -23,6 +23,10 @@ final class PhotoImageCache {
         return image
     }
 
+    func remove(_ id: UUID) {
+        cache[id] = nil
+    }
+
     func removeAll() {
         cache.removeAll()
     }
