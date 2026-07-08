@@ -84,6 +84,14 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
         var canvasHeight: CGFloat { yEnd - yStart }
     }
 
+    /// ブリード込みの表示ジオメトリ（`buildFrameSpecs` 内で使用）
+    private struct DisplayGeom {
+        var yStart: CGFloat
+        var height: CGFloat
+        var pan:    CGFloat
+        var panDur: Double
+    }
+
     private static func computeStrips(
         sheet: Sheet,
         canvasWidth: CGFloat,
@@ -166,7 +174,7 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
 
         /// ブリード込みの表示ジオメトリを計算する（隣接行の端が少し見える）
         let bleedFraction: CGFloat = 0.2   // 行高さの 20% を上下に滲み出させる
-        func displayGeom(_ strip: StripGeometry) -> (yStart: CGFloat, height: CGFloat, pan: CGFloat, panDur: Double) {
+        func displayGeom(_ strip: StripGeometry) -> DisplayGeom {
             let bleedPx = strip.canvasHeight * bleedFraction
             let dyStart = max(0, strip.yStart - bleedPx)
             let dyEnd   = min(canvasHeight, strip.yEnd + bleedPx)
@@ -175,7 +183,7 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
             let cropW   = outputSize.width / sc
             let panAmt  = max(0, canvasWidth - cropW)
             let panDur  = max(0.5, Double(panAmt) / config.speed.canvasPixelsPerSecond)
-            return (dyStart, dh, panAmt, panDur)
+            return DisplayGeom(yStart: dyStart, height: dh, pan: panAmt, panDur: panDur)
         }
 
         func cropRect(yStart: CGFloat, height: CGFloat, xOffset: CGFloat) -> CGRect {
@@ -198,7 +206,7 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
 
         // ─── ストリップ ────────────────────────────────────────────
         for (si, strip) in strips.enumerated() {
-            let (dyStart, dh, panAmt, panDur) = displayGeom(strip)
+            let geom = displayGeom(strip)
 
             // フェードイン
             let fadeInFrames: Int
@@ -209,17 +217,17 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
             } else {
                 fadeInFrames = 0
             }
-            for i in 0..<fadeInFrames {
-                let a = CGFloat(Double(i) / Double(max(1, fadeInFrames)))
-                specs.append(.init(content: .strip(cropRect: cropRect(yStart: dyStart, height: dh, xOffset: 0)), alpha: a))
+            for idx in 0..<fadeInFrames {
+                let alpha = CGFloat(Double(idx) / Double(max(1, fadeInFrames)))
+                specs.append(.init(content: .strip(cropRect: cropRect(yStart: geom.yStart, height: geom.height, xOffset: 0)), alpha: alpha))
             }
 
             // パン本体
-            let panFrames = frames(panDur)
-            for i in 0..<panFrames {
-                let t = panFrames > 1 ? Double(i) / Double(panFrames - 1) : 0
-                let x = CGFloat(easeInOut(t)) * panAmt
-                specs.append(.init(content: .strip(cropRect: cropRect(yStart: dyStart, height: dh, xOffset: x)), alpha: 1))
+            let panFrames = frames(geom.panDur)
+            for idx in 0..<panFrames {
+                let progress = panFrames > 1 ? Double(idx) / Double(panFrames - 1) : 0
+                let xOff = CGFloat(easeInOut(progress)) * geom.pan
+                specs.append(.init(content: .strip(cropRect: cropRect(yStart: geom.yStart, height: geom.height, xOffset: xOff)), alpha: 1))
             }
 
             // フェードアウト
@@ -232,9 +240,9 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
             } else {
                 fadeOutFrames = 0
             }
-            for i in 0..<fadeOutFrames {
-                let a = CGFloat(1 - Double(i) / Double(max(1, fadeOutFrames)))
-                specs.append(.init(content: .strip(cropRect: cropRect(yStart: dyStart, height: dh, xOffset: panAmt)), alpha: a))
+            for idx in 0..<fadeOutFrames {
+                let alpha = CGFloat(1 - Double(idx) / Double(max(1, fadeOutFrames)))
+                specs.append(.init(content: .strip(cropRect: cropRect(yStart: geom.yStart, height: geom.height, xOffset: geom.pan)), alpha: alpha))
             }
         }
 
