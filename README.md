@@ -15,11 +15,12 @@
     - 実物と同じく長辺がストリップ方向を向くよう、向きの合わない写真は自動で 90 度回転
 - 列数プリセット 2/3/4/6（デフォルトは 6 列 = 35mm ベタ焼きの伝統）
 - シートヘッダー（タイトル + 日付/ロール番号）
-- 用紙フォーマット: 自由 / 8×10 / 4×6 / A4 / 9:16（固定比率は内容を相似形のまま収める）
+- 用紙フォーマット: 8×10（デフォルト）/ 自由 / 4×6 / A4 / 9:16（固定比率は内容を相似形のまま収める）
 - 仕上げ: 外余白・セル間隔・背景色
 - 写真の追加取り込み（既存のシートに追加）・長押しで個別削除
 - 書き出し: 高解像度 PNG をカメラロールへ保存、共有シートでシェア
   - SNS 想定で幅 2160px（Instagram 1080 の 2 倍）、印刷系用紙（8×10/4×6/A4）選択時は幅 2400px（8×10 で 300dpi 相当）
+  - 動画書き出しは進捗表示付き
 
 ## アーキテクチャ
 
@@ -41,6 +42,14 @@ PhotoSheetTests/ # Domain の単体テスト
 - **すべての座標・寸法は Domain の `SheetLayoutMath`（純関数）が決める。** 将来のスクロール/スライド動画書き出しは「同じレイアウト計算のまま、表示オフセットを変えながらフレームを連続レンダリングする」ことで実現する（描画コードの複製は作らない）。
 - **`FilmStripRow` は列数・コマ幅が引数**なので、横スクロールする 1 本の長いフィルム（列数 = 全枚数）にもそのまま流用できる。
 - **永続化は `SheetProjectRepository` プロトコルの背後**（現在はファイルベース）。iCloud 同期などへの差し替えは Data 層の実装追加のみで済む。
+
+## ドキュメント
+
+- [docs/README.md](docs/README.md): 設計/運用ドキュメントの入口
+- [docs/architecture.md](docs/architecture.md): アーキテクチャと不変条件
+- [docs/development-guide.md](docs/development-guide.md): 検証ループと運用手順
+- [docs/product-decisions.md](docs/product-decisions.md): 現在の UX 方針とデフォルト値
+- [CLAUDE.md](CLAUDE.md): Claude/AI エージェント向け実務ガイド
 
 ## 開発
 
@@ -71,7 +80,7 @@ AI・人間を問わず「誤りに早く気づける」ための多層ゲート
 
 コア層（`PhotoSheet/Domain` + `PhotoSheet/Data/Persistence` + `PhotoSheetTests`）は SwiftPM パッケージ `PhotoSheetCore`（`Package.swift`）として Mac なしでビルド・テストできます。この範囲は Foundation のみ依存（Linux でコンパイル可能）に保つこと。
 
-開発の進め方・規約は [CLAUDE.md](CLAUDE.md) を参照。機能追加・バグ修正は Issue テンプレート（受け入れ条件つき）を起点にする。
+開発の進め方・規約は [CLAUDE.md](CLAUDE.md) と [docs/development-guide.md](docs/development-guide.md) を参照。機能追加・バグ修正は Issue テンプレート（受け入れ条件つき）を起点にする。
 
 ## 将来のアイディア
 

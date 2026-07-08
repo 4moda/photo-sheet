@@ -2,6 +2,11 @@
 
 写真をコンタクトシート（ベタ焼き）/ インデックスプリント風に並べ、一つの作品として書き出す iOS アプリ。
 
+関連ドキュメント:
+- 設計: `docs/architecture.md`
+- 開発運用: `docs/development-guide.md`
+- 現在の仕様判断: `docs/product-decisions.md`
+
 ## 開発環境の前提（最重要）
 
 - このリポジトリは **Mac がなくても開発できる**構成になっている。アプリ全体のビルド・テストは GitHub Actions（macOS ランナー）で行う。Mac がある場合は `xcodegen generate` して Xcode でそのまま開発してもよい。
@@ -19,7 +24,7 @@ scripts/test-core.sh          # コアのテストが数秒で回る。コア変
 1. コアに触れたら `scripts/test-core.sh`（編集時フックも自動でコンパイルチェックする）
 2. コミット・push → 3 つのワークフローが走る:
    - **CI**: SwiftLint / Linux コアテスト / macOS フルビルド+テスト+Domain カバレッジゲート(80%)
-   - **Appetize Deploy**: ブラウザ確認用ビルドを更新（URL は Actions の実行サマリーに出力される）
+   - **Appetize Deploy**: ブラウザ確認用ビルドを更新
    - **Device Build**: 未署名 IPA を Artifacts に出力（Sideloadly 等 + 無料 Apple ID で実機確認）
 3. CI の監視: `gh run list --limit 3` / `gh run watch <id> --exit-status`
 4. 失敗時: `gh run view <id> --log-failed | grep -E "error:" | head -30`
@@ -34,8 +39,10 @@ scripts/test-core.sh          # コアのテストが数秒で回る。コア変
 
 ## UI/UX ポリシー（オーナー確定事項）
 
-- フローティングバーの項目は**最大 6 個**。新しい設定は既存パネル（見た目 / 用紙 / タイトル）へ収める。
+- フローティングバーの項目は**最大 6 個**。新しい設定は既存パネル（見た目 / タイトル / 書き出し）へ収める。
 - 列数のデフォルトは**常に 6**（枚数から自動決定しない）。
+- 用紙のデフォルトは **8x10**。
+- 背景のデフォルトは **grid=白 / filmStrip=黒**（スタイル既定に追従）。
 - 写真の追加は**右上ツールバーの [+]**。
 - 操作: タップ = 写真メニュー / 長押しドラッグ = 並べ替え（contextMenu と drag は長押しが競合するため併用禁止）。
 - UI 文言は日本語。
