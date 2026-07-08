@@ -34,18 +34,15 @@ struct SheetEditorView: View {
         .fileImporter(isPresented: $showZipImporter, allowedContentTypes: [.zip]) { result in
             viewModel.importZip(result)
         }
-        .confirmationDialog("この写真", isPresented: actionPhotoBinding, titleVisibility: .hidden) {
-            Button("この写真を削除", role: .destructive) {
-                if let id = actionPhotoId {
-                    viewModel.removePhoto(id)
-                }
+        .confirmationDialog(
+            actionPhotoName ?? "写真",
+            isPresented: actionPhotoBinding,
+            titleVisibility: .visible
+        ) {
+            Button("削除", role: .destructive) {
+                if let id = actionPhotoId { viewModel.removePhoto(id) }
                 actionPhotoId = nil
             }
-            Button("キャンセル", role: .cancel) {
-                actionPhotoId = nil
-            }
-        } message: {
-            Text("長押しして他の写真の上へドラッグすると並べ替えできます")
         }
         .sheet(isPresented: $viewModel.isSharePresented) {
             if let image = viewModel.shareImage {
@@ -171,6 +168,11 @@ struct SheetEditorView: View {
     }
 
     // MARK: - Bindings
+
+    private var actionPhotoName: String? {
+        guard let id = actionPhotoId else { return nil }
+        return viewModel.sheet.photos.first(where: { $0.id == id })?.fileName
+    }
 
     private var actionPhotoBinding: Binding<Bool> {
         Binding(

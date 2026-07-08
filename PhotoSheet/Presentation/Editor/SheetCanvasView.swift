@@ -12,6 +12,9 @@ struct SheetCanvasView: View {
     var onTapPhoto: ((UUID) -> Void)?
     var onMovePhoto: ((_ dragged: UUID, _ target: UUID) -> Void)?
 
+    /// ドラッグ中に hover しているドロップ先写真の ID
+    @State private var dropTargetId: UUID?
+
     private var layout: LayoutConfig { sheet.layout }
     private var margin: Double { SheetLayoutMath.margin(layout, width: width) }
     private var spacing: Double { SheetLayoutMath.spacing(layout, width: width) }
@@ -96,7 +99,10 @@ struct SheetCanvasView: View {
                 cellWidth: cellWidth,
                 height: SheetLayoutMath.gridPhotoHeight(photo, layout: layout, cellWidth: cellWidth)
             )
-            .photoInteraction(photo, onTap: onTapPhoto, onMove: onMovePhoto)
+            .dropTargetOverlay(show: dropTargetId == photo.id)
+            .photoInteraction(photo, onTap: onTapPhoto, onMove: onMovePhoto) { id, targeted in
+                withAnimation(.easeInOut(duration: 0.15)) { dropTargetId = targeted ? id : nil }
+            }
             if layout.showFilename {
                 Text(photo.fileName)
                     .font(.system(size: cellWidth * 0.08, design: .monospaced))
@@ -126,7 +132,11 @@ struct SheetCanvasView: View {
                 edgeText: layout.filmEdgeText,
                 imageCache: imageCache,
                 onTapPhoto: onTapPhoto,
-                onMovePhoto: onMovePhoto
+                onMovePhoto: onMovePhoto,
+                dropTargetId: dropTargetId,
+                onDropTargeted: { id, targeted in
+                    withAnimation(.easeInOut(duration: 0.15)) { dropTargetId = targeted ? id : nil }
+                }
             )
         }
     }
@@ -162,7 +172,8 @@ private extension View {
     func photoInteraction(
         _ photo: SheetPhoto,
         onTap: ((UUID) -> Void)?,
-        onMove: ((UUID, UUID) -> Void)?
+        onMove: ((UUID, UUID) -> Void)?,
+        onDropTargeted: ((UUID, Bool) -> Void)? = nil
     ) -> some View {
         if let onTap, let onMove {
             self
@@ -174,9 +185,23 @@ private extension View {
                     }
                     onMove(draggedId, photo.id)
                     return true
+                } isTargeted: { targeted in
+                    onDropTargeted?(photo.id, targeted)
                 }
         } else {
             self
+        }
+    }
+
+    /// ドロップ先をアクセントカラーでハイライト
+    @ViewBuilder
+    func dropTargetOverlay(show: Bool) -> some View {
+        overlay {
+            if show {
+                Color.accentColor.opacity(0.25)
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Color.accentColor, lineWidth: 3)
+            }
         }
     }
 }
@@ -194,6 +219,8 @@ private struct FilmStripRow: View {
     let imageCache: PhotoImageCache
     let onTapPhoto: ((UUID) -> Void)?
     let onMovePhoto: ((UUID, UUID) -> Void)?
+    var dropTargetId: UUID?
+    var onDropTargeted: ((UUID, Bool) -> Void)?
 
     /// フィルムベースの黒（純黒より僅かに浮かせて「焼かれた黒」に寄せる）
     private static let filmBlack = Color(red: 0.043, green: 0.043, blue: 0.05)
@@ -258,7 +285,8 @@ private struct FilmStripRow: View {
                 }
                 .frame(width: frameWidth, height: frameHeight)
                 .clipped()
-                .photoInteraction(photo, onTap: onTapPhoto, onMove: onMovePhoto)
+                .dropTargetOverlay(show: dropTargetId == photo.id)
+                .photoInteraction(photo, onTap: onTapPhoto, onMove: onMovePhoto, onDropTargeted: onDropTargeted)
             }
             Spacer(minLength: 0)
         }

@@ -1,21 +1,20 @@
 import SwiftUI
 
 /// 画面下部に浮かぶツールバー。アイコンをタップすると該当する設定パネルだけがバーの上に開く。
-/// 項目は意味ごとに 3 グループ（見た目 / 用紙 / タイトル）+ 保存・共有の計 5 個に抑える。
+/// 項目は 見た目 / 用紙 / タイトル / 書き出し の 4 個に抑える。
 struct FloatingControlBar: View {
     @Bindable var viewModel: SheetEditorViewModel
 
     @State private var selectedTool: Tool?
+    @State private var exportFormat: ExportFormat = .image
+
+    // MARK: - ツール種別
 
     enum Tool: String, CaseIterable, Identifiable {
-        /// スタイル・列数・セル比率・ファイル名
         case appearance
-        /// 用紙フォーマット・余白・背景
         case paper
-        /// タイトル・サブタイトル
         case text
-        /// スクロール動画の書き出し設定
-        case video
+        case export
 
         var id: String { rawValue }
 
@@ -24,7 +23,7 @@ struct FloatingControlBar: View {
             case .appearance: "square.grid.3x3"
             case .paper: "rectangle.portrait"
             case .text: "textformat"
-            case .video: "film.stack"
+            case .export: "square.and.arrow.up"
             }
         }
 
@@ -33,10 +32,13 @@ struct FloatingControlBar: View {
             case .appearance: "見た目"
             case .paper: "用紙"
             case .text: "タイトル"
-            case .video: "動画"
+            case .export: "書き出し"
             }
         }
     }
+
+    /// 書き出しフォーマット（書き出しパネル内で選択）
+    private enum ExportFormat { case image, video }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -55,17 +57,6 @@ struct FloatingControlBar: View {
         HStack(spacing: 4) {
             ForEach(Tool.allCases) { tool in
                 toolButton(tool)
-            }
-
-            Divider().frame(height: 22)
-
-            barButton(icon: "square.and.arrow.down", accessibilityLabel: "写真に保存") {
-                selectedTool = nil
-                viewModel.saveToPhotoLibrary()
-            }
-            barButton(icon: "square.and.arrow.up", accessibilityLabel: "共有") {
-                selectedTool = nil
-                viewModel.presentShareSheet()
             }
         }
         .padding(.horizontal, 12)
@@ -132,8 +123,8 @@ struct FloatingControlBar: View {
                 .textFieldStyle(.roundedBorder)
             TextField("サブタイトル（日付・ロール番号など）", text: $viewModel.sheet.caption)
                 .textFieldStyle(.roundedBorder)
-        case .video:
-            videoPanel
+        case .export:
+            exportPanel
         }
     }
 
@@ -267,68 +258,86 @@ struct FloatingControlBar: View {
         )
     }
 
-    // MARK: - 動画パネル
+    // MARK: - 書き出しパネル
 
     @ViewBuilder
-    private var videoPanel: some View {
-        // スクロール速度
-        labeledRow("速度") {
-            Picker("速度", selection: $viewModel.videoConfig.speed) {
-                ForEach(VideoExportConfig.Speed.allCases, id: \.self) { s in
-                    Text(s.displayName).tag(s)
-                }
+    private var exportPanel: some View {
+        // フォーマット選択
+        labeledRow("形式") {
+            Picker("形式", selection: $exportFormat) {
+                Text("画像").tag(ExportFormat.image)
+                Text("動画").tag(ExportFormat.video)
             }
             .pickerStyle(.segmented)
         }
 
-        // 表示行数（ズーム）
-        labeledRow("表示行数") {
-            HStack(spacing: 10) {
-                Button {
-                    viewModel.videoConfig.visibleRows = max(1, viewModel.videoConfig.visibleRows - 1)
-                } label: {
-                    Image(systemName: "minus.circle")
-                        .font(.title3)
+        // 動画オプション（動画選択時のみ）
+        if exportFormat == .video {
+            Divider()
+
+            labeledRow("速度") {
+                Picker("速度", selection: $viewModel.videoConfig.speed) {
+                    ForEach(VideoExportConfig.Speed.allCases, id: \.self) { s in
+                        Text(s.displayName).tag(s)
+                    }
                 }
-                .buttonStyle(.plain)
-                .disabled(viewModel.videoConfig.visibleRows <= 1)
+                .pickerStyle(.segmented)
+            }
 
-                Text("\(viewModel.videoConfig.visibleRows)行")
-                    .frame(minWidth: 36)
-                    .monospacedDigit()
+            labeledRow("表示行数") {
+                HStack(spacing: 10) {
+                    Button {
+                        viewModel.videoConfig.visibleRows = max(1, viewModel.videoConfig.visibleRows - 1)
+                    } label: {
+                        Image(systemName: "minus.circle").font(.title3)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(viewModel.videoConfig.visibleRows <= 1)
 
-                Button {
-                    viewModel.videoConfig.visibleRows = min(8, viewModel.videoConfig.visibleRows + 1)
-                } label: {
-                    Image(systemName: "plus.circle")
-                        .font(.title3)
+                    Text("\(viewModel.videoConfig.visibleRows)行")
+                        .frame(minWidth: 36)
+                        .monospacedDigit()
+
+                    Button {
+                        viewModel.videoConfig.visibleRows = min(8, viewModel.videoConfig.visibleRows + 1)
+                    } label: {
+                        Image(systemName: "plus.circle").font(.title3)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(viewModel.videoConfig.visibleRows >= 8)
+
+                    Spacer()
                 }
-                .buttonStyle(.plain)
-                .disabled(viewModel.videoConfig.visibleRows >= 8)
+            }
 
-                Spacer()
+            labeledRow("全体表示") {
+                Toggle("前後に全体表示", isOn: $viewModel.videoConfig.showOverview)
+                    .labelsHidden()
             }
         }
 
-        // 全体フェーズ
-        labeledRow("全体表示") {
-            Toggle("前後に全体表示", isOn: $viewModel.videoConfig.showOverview)
-                .labelsHidden()
-        }
-
-        // 操作ボタン
+        // 書き出しボタン
+        Divider()
         HStack(spacing: 12) {
             Button {
-                viewModel.saveVideoToPhotoLibrary()
+                if exportFormat == .image {
+                    viewModel.saveToPhotoLibrary()
+                } else {
+                    viewModel.saveVideoToPhotoLibrary()
+                }
             } label: {
-                Label("動画を保存", systemImage: "square.and.arrow.down")
+                Label("保存", systemImage: "square.and.arrow.down")
                     .font(.subheadline)
             }
             .buttonStyle(.borderedProminent)
             .disabled(viewModel.isExporting || viewModel.sheet.photos.isEmpty)
 
             Button {
-                viewModel.presentVideoShareSheet()
+                if exportFormat == .image {
+                    viewModel.presentShareSheet()
+                } else {
+                    viewModel.presentVideoShareSheet()
+                }
             } label: {
                 Label("共有", systemImage: "square.and.arrow.up")
                     .font(.subheadline)
@@ -337,8 +346,7 @@ struct FloatingControlBar: View {
             .disabled(viewModel.isExporting || viewModel.sheet.photos.isEmpty)
 
             if viewModel.isExporting {
-                ProgressView()
-                    .controlSize(.small)
+                ProgressView().controlSize(.small)
             }
         }
     }
