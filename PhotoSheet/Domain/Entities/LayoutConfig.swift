@@ -98,7 +98,8 @@ struct LayoutConfig: Equatable, Codable {
     /// フィルムストリップの縁に白抜きで入れるエッジテキスト
     var filmEdgeText: String
 
-    /// デフォルトは 6 列（35mm ベタ焼きの伝統的な列数）
+    /// デフォルトは 6 列（35mm ベタ焼きの伝統的な列数）。
+    /// 用紙は一般的なコンタクトシート運用に合わせて 8x10 を既定にする。
     static let `default` = LayoutConfig(
         columns: 6,
         cellAspect: .film3x2,
@@ -107,7 +108,7 @@ struct LayoutConfig: Equatable, Codable {
         background: .white,
         showFilename: false,
         style: .grid,
-        paperFormat: .flexible,
+        paperFormat: .print8x10,
         filmFormat: .fullFrame,
         filmEdgeText: "PHOTO SHEET 400"
     )
