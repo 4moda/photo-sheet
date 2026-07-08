@@ -42,7 +42,7 @@ jobs:
           xcodebuild test \
             -project PhotoSheet.xcodeproj \
             -scheme PhotoSheet \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
             -enableCodeCoverage YES \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO
