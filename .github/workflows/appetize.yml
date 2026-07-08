@@ -64,15 +64,13 @@ jobs:
             -F "file=@PhotoSheet-simulator.zip" \
             -F "platform=ios")
           PUBLIC_KEY=$(echo "$RESPONSE" | jq -r '.publicKey')
-          echo "publicKey=$PUBLIC_KEY"
-          echo "appUrl=https://appetize.io/app/$PUBLIC_KEY"
           {
             echo "## Appetize デプロイ完了 🎉"
             echo ""
-            echo "- **ブラウザで開く**: https://appetize.io/app/$PUBLIC_KEY"
-            echo "- publicKey: \`$PUBLIC_KEY\`"
+            echo "- Appetize へのアップロードが完了しました。"
+            echo "- URL / publicKey は Appetize 管理画面または Secret から確認してください。"
             if [ -z "$APPETIZE_PUBLIC_KEY" ]; then
               echo ""
-              echo "> 次回以降も同じ URL を使うには、この publicKey をリポジトリ Secret \`APPETIZE_PUBLIC_KEY\` に登録してください。"
+              echo "> 次回以降も同じ URL を使うには、初回発行された publicKey を Secret \`APPETIZE_PUBLIC_KEY\` に登録してください。"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
