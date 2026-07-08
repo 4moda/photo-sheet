@@ -27,3 +27,24 @@ extension CellAspect {
         }
     }
 }
+
+extension SheetStyle {
+    var displayName: String {
+        switch self {
+        case .grid: "グリッド"
+        case .filmStrip: "フィルム"
+        }
+    }
+}
+
+extension PaperFormat {
+    var displayName: String {
+        switch self {
+        case .flexible: "自由"
+        case .print8x10: "8×10"
+        case .print4x6: "4×6"
+        case .a4: "A4"
+        case .story9x16: "9:16"
+        }
+    }
+}

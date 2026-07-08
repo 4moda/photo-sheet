@@ -1,5 +1,33 @@
 import Foundation
 
+/// シートの描画スタイル
+enum SheetStyle: String, CaseIterable, Equatable {
+    /// 均等グリッド（インデックスプリント風）
+    case grid
+    /// フィルムストリップ（ベタ焼き風）: 行 = 黒いレベート帯の 6 コマストリップ
+    case filmStrip
+}
+
+/// 用紙フォーマット。固定比率を選ぶと定型プリントのようにシート全体の縦横比が固定される。
+enum PaperFormat: String, CaseIterable, Equatable {
+    case flexible
+    case print8x10
+    case print4x6
+    case a4
+    case story9x16
+
+    /// 幅 / 高さ（縦向き）。flexible は内容に応じて可変（nil）。
+    var aspectRatio: Double? {
+        switch self {
+        case .flexible: nil
+        case .print8x10: 8.0 / 10.0
+        case .print4x6: 4.0 / 6.0
+        case .a4: 1.0 / 1.4142
+        case .story9x16: 9.0 / 16.0
+        }
+    }
+}
+
 /// セルの縦横比
 enum CellAspect: String, CaseIterable, Equatable {
     /// 各写真の元の比率を尊重する
@@ -45,8 +73,12 @@ struct LayoutConfig: Equatable {
     /// 外余白（シート幅に対する比率）
     var marginRatio: Double
     var background: SheetBackground
-    /// 各セルの下にファイル名（コマ番号相当）を表示するか
+    /// 各セルの下にファイル名（コマ番号相当）を表示するか（grid スタイルのみ）
     var showFilename: Bool
+    var style: SheetStyle
+    var paperFormat: PaperFormat
+    /// フィルムストリップの縁に白抜きで入れるエッジテキスト
+    var filmEdgeText: String
 
     static let `default` = LayoutConfig(
         columns: 4,
@@ -54,7 +86,10 @@ struct LayoutConfig: Equatable {
         spacingRatio: 0.012,
         marginRatio: 0.05,
         background: .white,
-        showFilename: false
+        showFilename: false,
+        style: .grid,
+        paperFormat: .flexible,
+        filmEdgeText: "PHOTO SHEET 400"
     )
 
     /// 選べる列数のプリセット（6 列は 35mm ベタ焼きの伝統的な列数）

@@ -80,7 +80,10 @@ final class SheetEditorViewModel {
         do {
             let photos = try await importPhotosUseCase(source: source)
             imageCache.removeAll()
-            sheet = buildSheetUseCase(photos: photos, basedOn: sheet.layout)
+            sheet = buildSheetUseCase(photos: photos, basedOn: sheet)
+            if sheet.caption.isEmpty {
+                sheet.caption = Self.captionDateFormatter.string(from: Date())
+            }
         } catch let error as PhotoImportError {
             errorMessage = importErrorMessage(error)
         } catch {
@@ -129,6 +132,16 @@ final class SheetEditorViewModel {
             errorMessage = "画像の生成に失敗しました"
         }
     }
+
+    // MARK: - Formatters
+
+    /// インデックスプリントの日付表記風（例: 2026.07.08）
+    private static let captionDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy.MM.dd"
+        return formatter
+    }()
 
     // MARK: - Messages
 

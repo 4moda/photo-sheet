@@ -16,15 +16,28 @@ final class BuildSheetUseCaseTests: XCTestCase {
     }
 
     func testKeepsOtherLayoutSettings() {
-        var layout = LayoutConfig.default
-        layout.background = .black
-        layout.showFilename = true
+        var current = Sheet(photos: [], layout: .default)
+        current.layout.background = .black
+        current.layout.showFilename = true
+        current.layout.style = .filmStrip
 
-        let sheet = BuildSheetUseCase()(photos: makePhotos(12), basedOn: layout)
+        let sheet = BuildSheetUseCase()(photos: makePhotos(12), basedOn: current)
 
         XCTAssertEqual(sheet.layout.background, .black)
         XCTAssertTrue(sheet.layout.showFilename)
+        XCTAssertEqual(sheet.layout.style, .filmStrip)
         XCTAssertEqual(sheet.layout.columns, 4)
+    }
+
+    func testKeepsTitleAndCaption() {
+        var current = Sheet(photos: [], layout: .default)
+        current.title = "OKINAWA"
+        current.caption = "2026.07.08"
+
+        let sheet = BuildSheetUseCase()(photos: makePhotos(6), basedOn: current)
+
+        XCTAssertEqual(sheet.title, "OKINAWA")
+        XCTAssertEqual(sheet.caption, "2026.07.08")
     }
 
     func testPreservesPhotoOrder() {

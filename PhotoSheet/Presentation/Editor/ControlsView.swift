@@ -1,11 +1,18 @@
 import SwiftUI
 
-/// 列数・比率・余白・背景・ラベルの調整パネル
+/// スタイル・列数・比率・用紙・余白・背景・タイトルの調整パネル
 struct ControlsView: View {
     @Bindable var viewModel: SheetEditorViewModel
 
     var body: some View {
         VStack(spacing: 12) {
+            Picker("スタイル", selection: $viewModel.sheet.layout.style) {
+                ForEach(SheetStyle.allCases, id: \.self) { style in
+                    Text(style.displayName).tag(style)
+                }
+            }
+            .pickerStyle(.segmented)
+
             Picker("列数", selection: $viewModel.sheet.layout.columns) {
                 ForEach(LayoutConfig.columnPresets, id: \.self) { columns in
                     Text("\(columns)列").tag(columns)
@@ -13,12 +20,31 @@ struct ControlsView: View {
             }
             .pickerStyle(.segmented)
 
-            Picker("比率", selection: $viewModel.sheet.layout.cellAspect) {
-                ForEach(CellAspect.allCases, id: \.self) { aspect in
-                    Text(aspect.displayName).tag(aspect)
+            if viewModel.sheet.layout.style == .grid {
+                Picker("比率", selection: $viewModel.sheet.layout.cellAspect) {
+                    ForEach(CellAspect.allCases, id: \.self) { aspect in
+                        Text(aspect.displayName).tag(aspect)
+                    }
                 }
+                .pickerStyle(.segmented)
             }
-            .pickerStyle(.segmented)
+
+            DisclosureGroup("タイトルと用紙") {
+                VStack(spacing: 10) {
+                    TextField("タイトル", text: $viewModel.sheet.title)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("サブタイトル（日付・ロール番号など）", text: $viewModel.sheet.caption)
+                        .textFieldStyle(.roundedBorder)
+                    Picker("用紙", selection: $viewModel.sheet.layout.paperFormat) {
+                        ForEach(PaperFormat.allCases, id: \.self) { format in
+                            Text(format.displayName).tag(format)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .padding(.top, 8)
+            }
+            .font(.subheadline)
 
             DisclosureGroup("余白と背景") {
                 VStack(spacing: 10) {
@@ -42,7 +68,9 @@ struct ControlsView: View {
                             .labelsHidden()
                         Spacer()
                     }
-                    Toggle("ファイル名を表示", isOn: $viewModel.sheet.layout.showFilename)
+                    if viewModel.sheet.layout.style == .grid {
+                        Toggle("ファイル名を表示", isOn: $viewModel.sheet.layout.showFilename)
+                    }
                 }
                 .padding(.top, 8)
             }

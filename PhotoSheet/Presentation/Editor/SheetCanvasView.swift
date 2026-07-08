@@ -1,60 +1,131 @@
 import SwiftUI
 
 /// シート本体の描画ビュー。プレビューにも書き出しにも同じものを使う（WYSIWYG）。
-/// レイアウト値は幅に対する比率で解釈するため、どの幅で描画しても相似形になる。
+/// 寸法はすべて SheetLayoutMath から取得し、幅に対する比率で解釈するため、
+/// どの幅で描画しても相似形になる。
 struct SheetCanvasView: View {
     let sheet: Sheet
     let width: CGFloat
     let imageCache: PhotoImageCache
 
     private var layout: LayoutConfig { sheet.layout }
-    private var margin: CGFloat { width * layout.marginRatio }
-    private var spacing: CGFloat { width * layout.spacingRatio }
+    private var margin: Double { SheetLayoutMath.margin(layout, width: width) }
+    private var spacing: Double { SheetLayoutMath.spacing(layout, width: width) }
 
-    private var cellWidth: CGFloat {
-        let columns = CGFloat(layout.columns)
-        return (width - margin * 2 - spacing * (columns - 1)) / columns
-    }
-
-    private var rows: [[SheetPhoto]] {
-        stride(from: 0, to: sheet.photos.count, by: layout.columns).map { start in
-            Array(sheet.photos[start..<min(start + layout.columns, sheet.photos.count)])
-        }
+    private var rowRanges: [Range<Int>] {
+        SheetLayoutMath.rowRanges(photoCount: sheet.photos.count, columns: layout.columns)
     }
 
     var body: some View {
+        if let ratio = layout.paperFormat.aspectRatio {
+            fixedPaperBody(ratio: ratio)
+        } else {
+            sheetContent
+                .background(Color(rgba: layout.background.color))
+        }
+    }
+
+    /// 用紙比率固定: 内容が収まらない場合は相似形のまま縮小して収める
+    private func fixedPaperBody(ratio: Double) -> some View {
+        let outerHeight = width / ratio
+        let naturalHeight = SheetLayoutMath.naturalHeight(sheet: sheet, width: width)
+        let scale = naturalHeight > 0 ? min(1, outerHeight / naturalHeight) : 1
+        return ZStack(alignment: .top) {
+            Color(rgba: layout.background.color)
+            sheetContent
+                .scaleEffect(scale, anchor: .top)
+        }
+        .frame(width: width, height: outerHeight)
+        .clipped()
+    }
+
+    private var sheetContent: some View {
         VStack(alignment: .leading, spacing: spacing) {
-            ForEach(rows.indices, id: \.self) { index in
-                rowView(rows[index])
+            if SheetLayoutMath.hasHeader(sheet) {
+                headerView
+            }
+            switch layout.style {
+            case .grid:
+                gridRows
+            case .filmStrip:
+                filmRows
             }
         }
         .padding(margin)
         .frame(width: width, alignment: .topLeading)
-        .background(Color(rgba: layout.background.color))
     }
 
-    private func rowView(_ row: [SheetPhoto]) -> some View {
-        HStack(alignment: .top, spacing: spacing) {
-            ForEach(row) { photo in
-                cellView(photo)
+    // MARK: - Header
+
+    private var headerView: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(sheet.title.uppercased())
+                .font(.system(size: width * 0.024, weight: .semibold, design: .monospaced))
+                .tracking(width * 0.004)
+            Spacer(minLength: 0)
+            Text(sheet.caption)
+                .font(.system(size: width * 0.019, design: .monospaced))
+                .opacity(0.65)
+        }
+        .foregroundStyle(labelColor)
+        .lineLimit(1)
+        .frame(height: SheetLayoutMath.headerHeight(sheet, width: width), alignment: .bottomLeading)
+    }
+
+    // MARK: - Grid style
+
+    private var gridRows: some View {
+        let cellWidth = SheetLayoutMath.gridCellWidth(layout, width: width)
+        return ForEach(rowRanges.indices, id: \.self) { index in
+            HStack(alignment: .top, spacing: spacing) {
+                ForEach(sheet.photos[rowRanges[index]]) { photo in
+                    gridCell(photo, cellWidth: cellWidth)
+                }
             }
         }
     }
 
-    private func cellView(_ photo: SheetPhoto) -> some View {
-        VStack(spacing: cellWidth * 0.04) {
-            photoView(photo)
+    private func gridCell(_ photo: SheetPhoto, cellWidth: Double) -> some View {
+        VStack(spacing: cellWidth * SheetLayoutMath.gridLabelGapRatio) {
+            photoView(
+                photo,
+                cellWidth: cellWidth,
+                height: SheetLayoutMath.gridPhotoHeight(photo, layout: layout, cellWidth: cellWidth)
+            )
             if layout.showFilename {
                 Text(photo.fileName)
                     .font(.system(size: cellWidth * 0.08, design: .monospaced))
                     .foregroundStyle(labelColor)
                     .lineLimit(1)
+                    .frame(height: cellWidth * SheetLayoutMath.gridLabelTextRatio)
             }
         }
         .frame(width: cellWidth, alignment: .top)
     }
 
-    private func photoView(_ photo: SheetPhoto) -> some View {
+    // MARK: - Film strip style
+
+    private var filmRows: some View {
+        let frameWidth = SheetLayoutMath.filmFrameWidth(layout, width: width)
+        let contentWidth = SheetLayoutMath.contentWidth(layout, width: width)
+        let separator = SheetLayoutMath.filmSeparator(layout, width: width)
+        return ForEach(rowRanges.indices, id: \.self) { index in
+            FilmStripRow(
+                photos: Array(sheet.photos[rowRanges[index]]),
+                startNumber: rowRanges[index].lowerBound + 1,
+                columns: layout.columns,
+                frameWidth: frameWidth,
+                contentWidth: contentWidth,
+                separator: separator,
+                edgeText: layout.filmEdgeText,
+                imageCache: imageCache
+            )
+        }
+    }
+
+    // MARK: - Shared
+
+    private func photoView(_ photo: SheetPhoto, cellWidth: Double, height: Double) -> some View {
         Group {
             if let image = imageCache.image(for: photo) {
                 Image(uiImage: image)
@@ -64,16 +135,8 @@ struct SheetCanvasView: View {
                 Color.gray.opacity(0.15)
             }
         }
-        .frame(width: cellWidth, height: photoHeight(photo))
+        .frame(width: cellWidth, height: height)
         .clipped()
-    }
-
-    private func photoHeight(_ photo: SheetPhoto) -> CGFloat {
-        switch layout.cellAspect {
-        case .film3x2: cellWidth * 2 / 3
-        case .square: cellWidth
-        case .original: cellWidth / CGFloat(max(photo.aspectRatio, 0.05))
-        }
     }
 
     /// 背景の明度に応じてラベル色を切り替える
@@ -81,5 +144,101 @@ struct SheetCanvasView: View {
         let color = layout.background.color
         let luminance = 0.299 * color.red + 0.587 * color.green + 0.114 * color.blue
         return luminance > 0.5 ? Color.black.opacity(0.7) : Color.white.opacity(0.8)
+    }
+}
+
+/// ベタ焼きの 1 ストリップ（黒いレベート帯 + エッジテキスト + スプロケット穴 + コマ番号）
+private struct FilmStripRow: View {
+    let photos: [SheetPhoto]
+    let startNumber: Int
+    let columns: Int
+    let frameWidth: Double
+    let contentWidth: Double
+    let separator: Double
+    let edgeText: String
+    let imageCache: PhotoImageCache
+
+    /// フィルムベースの黒（純黒より僅かに浮かせて「焼かれた黒」に寄せる）
+    private static let filmBlack = Color(red: 0.043, green: 0.043, blue: 0.05)
+
+    private var frameHeight: Double { frameWidth / SheetLayoutMath.filmFrameAspect }
+    private var edgeBandHeight: Double { frameWidth * SheetLayoutMath.filmEdgeTextRatio }
+    private var sprocketBandHeight: Double { frameWidth * SheetLayoutMath.filmSprocketRatio }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            edgeTextLine
+            sprocketRow
+            photoRow
+            sprocketRow
+            numberLine
+        }
+        .frame(width: contentWidth)
+        .background(Self.filmBlack)
+    }
+
+    private var edgeTextLine: some View {
+        let repeated = Array(repeating: edgeText, count: max(columns, 1))
+            .joined(separator: "        ")
+        return Text(repeated)
+            .font(.system(size: frameWidth * 0.055, weight: .medium, design: .monospaced))
+            .tracking(frameWidth * 0.012)
+            .foregroundStyle(.white.opacity(0.55))
+            .lineLimit(1)
+            .frame(width: contentWidth, height: edgeBandHeight)
+            .clipped()
+    }
+
+    private var sprocketRow: some View {
+        let holeCount = columns * SheetLayoutMath.sprocketHolesPerFrame
+        let slotWidth = contentWidth / Double(holeCount)
+        return HStack(spacing: 0) {
+            ForEach(0..<holeCount, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: slotWidth * 0.14)
+                    .fill(.white.opacity(0.16))
+                    .frame(width: slotWidth * 0.45, height: sprocketBandHeight * 0.62)
+                    .frame(width: slotWidth, height: sprocketBandHeight)
+            }
+        }
+    }
+
+    private var photoRow: some View {
+        HStack(alignment: .top, spacing: separator) {
+            ForEach(photos) { photo in
+                Group {
+                    if let image = imageCache.image(for: photo) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Color.gray.opacity(0.25)
+                    }
+                }
+                .frame(width: frameWidth, height: frameHeight)
+                .clipped()
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(width: contentWidth, height: frameHeight, alignment: .topLeading)
+    }
+
+    private var numberLine: some View {
+        HStack(alignment: .center, spacing: separator) {
+            ForEach(Array(photos.enumerated()), id: \.element.id) { offset, _ in
+                let number = startNumber + offset
+                HStack {
+                    Text("\(number)")
+                    Spacer(minLength: 0)
+                    Text("\(number)A")
+                    Spacer(minLength: 0)
+                }
+                .font(.system(size: frameWidth * 0.06, weight: .medium, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.7))
+                .padding(.horizontal, frameWidth * 0.03)
+                .frame(width: frameWidth)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(width: contentWidth, height: edgeBandHeight, alignment: .leading)
     }
 }
