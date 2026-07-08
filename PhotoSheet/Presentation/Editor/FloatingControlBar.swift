@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 画面下部に浮かぶツールバー。アイコンをタップすると該当する設定パネルだけがバーの上に開く。
-/// 項目は 見た目 / 用紙 / タイトル / 書き出し の 4 個に抑える。
+/// 項目は 見た目 / タイトル / 書き出し の 3 個。用紙設定は書き出しパネル内に統合。
 struct FloatingControlBar: View {
     @Bindable var viewModel: SheetEditorViewModel
 
@@ -12,7 +12,6 @@ struct FloatingControlBar: View {
 
     enum Tool: String, CaseIterable, Identifiable {
         case appearance
-        case paper
         case text
         case export
 
@@ -21,7 +20,6 @@ struct FloatingControlBar: View {
         var icon: String {
             switch self {
             case .appearance: "square.grid.3x3"
-            case .paper: "rectangle.portrait"
             case .text: "textformat"
             case .export: "square.and.arrow.up"
             }
@@ -30,7 +28,6 @@ struct FloatingControlBar: View {
         var title: String {
             switch self {
             case .appearance: "見た目"
-            case .paper: "用紙"
             case .text: "タイトル"
             case .export: "書き出し"
             }
@@ -41,14 +38,24 @@ struct FloatingControlBar: View {
     private enum ExportFormat { case image, video }
 
     var body: some View {
-        VStack(spacing: 10) {
-            if let tool = selectedTool {
-                toolPanel(tool)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+        ZStack(alignment: .bottom) {
+            // パネルが開いているとき、範囲外タップで閉じる
+            if selectedTool != nil {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.snappy(duration: 0.2)) { selectedTool = nil }
+                    }
             }
-            bar
+            VStack(spacing: 10) {
+                if let tool = selectedTool {
+                    toolPanel(tool)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                bar
+            }
+            .animation(.snappy(duration: 0.2), value: selectedTool)
         }
-        .animation(.snappy(duration: 0.2), value: selectedTool)
     }
 
     // MARK: - Bar
@@ -116,8 +123,6 @@ struct FloatingControlBar: View {
         switch tool {
         case .appearance:
             appearancePanel
-        case .paper:
-            paperPanel
         case .text:
             TextField("タイトル", text: $viewModel.sheet.title)
                 .textFieldStyle(.roundedBorder)
@@ -156,6 +161,26 @@ struct FloatingControlBar: View {
                 .opacity(isGridStyle ? 0 : 1)
                 .allowsHitTesting(!isGridStyle)
         }
+
+        // 余白・間隔・背景色（旧 用紙パネルからここへ統合）
+        Divider()
+        labeledRow("外余白") {
+            Slider(value: $viewModel.sheet.layout.marginRatio, in: 0...0.1)
+        }
+        labeledRow("間隔") {
+            Slider(value: $viewModel.sheet.layout.spacingRatio, in: 0...0.05)
+        }
+        HStack(spacing: 12) {
+            Text("背景")
+                .font(.subheadline)
+                .frame(width: 52, alignment: .leading)
+            backgroundButton(.white)
+            backgroundButton(.black)
+            backgroundButton(.paperGray)
+            ColorPicker("カスタム背景色", selection: customColorBinding)
+                .labelsHidden()
+            Spacer()
+        }
     }
 
     private var isGridStyle: Bool {
@@ -193,34 +218,6 @@ struct FloatingControlBar: View {
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
             }
-        }
-    }
-
-    @ViewBuilder
-    private var paperPanel: some View {
-        Picker("用紙", selection: $viewModel.sheet.layout.paperFormat) {
-            ForEach(PaperFormat.allCases, id: \.self) { format in
-                Text(format.displayName).tag(format)
-            }
-        }
-        .pickerStyle(.segmented)
-
-        labeledRow("外余白") {
-            Slider(value: $viewModel.sheet.layout.marginRatio, in: 0...0.1)
-        }
-        labeledRow("間隔") {
-            Slider(value: $viewModel.sheet.layout.spacingRatio, in: 0...0.05)
-        }
-        HStack(spacing: 12) {
-            Text("背景")
-                .font(.subheadline)
-                .frame(width: 52, alignment: .leading)
-            backgroundButton(.white)
-            backgroundButton(.black)
-            backgroundButton(.paperGray)
-            ColorPicker("カスタム背景色", selection: customColorBinding)
-                .labelsHidden()
-            Spacer()
         }
     }
 
@@ -271,10 +268,66 @@ struct FloatingControlBar: View {
             .pickerStyle(.segmented)
         }
 
-        // 動画オプション（動画選択時のみ）
-        if exportFormat == .video {
-            Divider()
+        Divider()
 
+        // 形式別オプション（ZStack で重ねて高さを固定し、切替時にパネルがリサイズしない）
+        ZStack(alignment: .topLeading) {
+            imageExportOptions
+                .opacity(exportFormat == .image ? 1 : 0)
+                .allowsHitTesting(exportFormat == .image)
+            videoExportOptions
+                .opacity(exportFormat == .video ? 1 : 0)
+                .allowsHitTesting(exportFormat == .video)
+        }
+
+        // 書き出しボタン
+        Divider()
+        HStack(spacing: 12) {
+            Button {
+                if exportFormat == .image {
+                    viewModel.saveToPhotoLibrary()
+                } else {
+                    viewModel.saveVideoToPhotoLibrary()
+                }
+            } label: {
+                Label("保存", systemImage: "square.and.arrow.down")
+                    .font(.subheadline)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(viewModel.isExporting || viewModel.sheet.photos.isEmpty)
+
+            Button {
+                if exportFormat == .image {
+                    viewModel.presentShareSheet()
+                } else {
+                    viewModel.presentVideoShareSheet()
+                }
+            } label: {
+                Label("共有", systemImage: "square.and.arrow.up")
+                    .font(.subheadline)
+            }
+            .buttonStyle(.bordered)
+            .disabled(viewModel.isExporting || viewModel.sheet.photos.isEmpty)
+
+            if viewModel.isExporting {
+                ProgressView().controlSize(.small)
+            }
+        }
+    }
+
+    private var imageExportOptions: some View {
+        labeledRow("用紙") {
+            Picker("用紙", selection: $viewModel.sheet.layout.paperFormat) {
+                ForEach(PaperFormat.allCases, id: \.self) { format in
+                    Text(format.displayName).tag(format)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
+    private var videoExportOptions: some View {
+        VStack(alignment: .leading, spacing: 12) {
             labeledRow("速度") {
                 Picker("速度", selection: $viewModel.videoConfig.speed) {
                     ForEach(VideoExportConfig.Speed.allCases, id: \.self) { s in
@@ -313,40 +366,6 @@ struct FloatingControlBar: View {
             labeledRow("全体表示") {
                 Toggle("前後に全体表示", isOn: $viewModel.videoConfig.showOverview)
                     .labelsHidden()
-            }
-        }
-
-        // 書き出しボタン
-        Divider()
-        HStack(spacing: 12) {
-            Button {
-                if exportFormat == .image {
-                    viewModel.saveToPhotoLibrary()
-                } else {
-                    viewModel.saveVideoToPhotoLibrary()
-                }
-            } label: {
-                Label("保存", systemImage: "square.and.arrow.down")
-                    .font(.subheadline)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(viewModel.isExporting || viewModel.sheet.photos.isEmpty)
-
-            Button {
-                if exportFormat == .image {
-                    viewModel.presentShareSheet()
-                } else {
-                    viewModel.presentVideoShareSheet()
-                }
-            } label: {
-                Label("共有", systemImage: "square.and.arrow.up")
-                    .font(.subheadline)
-            }
-            .buttonStyle(.bordered)
-            .disabled(viewModel.isExporting || viewModel.sheet.photos.isEmpty)
-
-            if viewModel.isExporting {
-                ProgressView().controlSize(.small)
             }
         }
     }
