@@ -11,6 +11,8 @@ struct SheetEditorView: View {
     @State private var showPhotosPicker = false
     @State private var showFolderImporter = false
     @State private var showZipImporter = false
+    /// タップされた写真（削除メニューの対象）
+    @State private var actionPhotoId: UUID?
 
     init(viewModel: SheetEditorViewModel, imageCache: PhotoImageCache) {
         _viewModel = State(initialValue: viewModel)
@@ -31,6 +33,19 @@ struct SheetEditorView: View {
         }
         .fileImporter(isPresented: $showZipImporter, allowedContentTypes: [.zip]) { result in
             viewModel.importZip(result)
+        }
+        .confirmationDialog("この写真", isPresented: actionPhotoBinding, titleVisibility: .hidden) {
+            Button("この写真を削除", role: .destructive) {
+                if let id = actionPhotoId {
+                    viewModel.removePhoto(id)
+                }
+                actionPhotoId = nil
+            }
+            Button("キャンセル", role: .cancel) {
+                actionPhotoId = nil
+            }
+        } message: {
+            Text("長押しして他の写真の上へドラッグすると並べ替えできます")
         }
         .sheet(isPresented: $viewModel.isSharePresented) {
             if let image = viewModel.shareImage {
@@ -68,7 +83,8 @@ struct SheetEditorView: View {
                         sheet: viewModel.sheet,
                         width: geometry.size.width,
                         imageCache: imageCache,
-                        onDeletePhoto: { viewModel.removePhoto($0) }
+                        onTapPhoto: { actionPhotoId = $0 },
+                        onMovePhoto: { viewModel.movePhoto($0, toPositionOf: $1) }
                     )
                     // フローティングバーに隠れないよう下端に余白を確保
                     .padding(.bottom, 96)
@@ -144,6 +160,13 @@ struct SheetEditorView: View {
     }
 
     // MARK: - Bindings
+
+    private var actionPhotoBinding: Binding<Bool> {
+        Binding(
+            get: { actionPhotoId != nil },
+            set: { if !$0 { actionPhotoId = nil } }
+        )
+    }
 
     private var errorBinding: Binding<Bool> {
         Binding(

@@ -7,8 +7,10 @@ struct SheetCanvasView: View {
     let sheet: Sheet
     let width: CGFloat
     let imageCache: PhotoImageCache
-    /// エディタから渡される削除ハンドラ。nil のとき（書き出し時）は操作 UI を一切付けない。
-    var onDeletePhoto: ((UUID) -> Void)?
+    /// エディタから渡される操作ハンドラ。nil のとき（書き出し時）は操作 UI を一切付けない。
+    /// タップ = 写真メニュー、長押しドラッグ → 他の写真へドロップ = 並べ替え。
+    var onTapPhoto: ((UUID) -> Void)?
+    var onMovePhoto: ((_ dragged: UUID, _ target: UUID) -> Void)?
 
     private var layout: LayoutConfig { sheet.layout }
     private var margin: Double { SheetLayoutMath.margin(layout, width: width) }
@@ -94,7 +96,7 @@ struct SheetCanvasView: View {
                 cellWidth: cellWidth,
                 height: SheetLayoutMath.gridPhotoHeight(photo, layout: layout, cellWidth: cellWidth)
             )
-            .deleteContextMenu(for: photo, onDelete: onDeletePhoto)
+            .photoInteraction(photo, onTap: onTapPhoto, onMove: onMovePhoto)
             if layout.showFilename {
                 Text(photo.fileName)
                     .font(.system(size: cellWidth * 0.08, design: .monospaced))
@@ -123,7 +125,8 @@ struct SheetCanvasView: View {
                 frameAspect: layout.filmFormat.frameAspect,
                 edgeText: layout.filmEdgeText,
                 imageCache: imageCache,
-                onDeletePhoto: onDeletePhoto
+                onTapPhoto: onTapPhoto,
+                onMovePhoto: onMovePhoto
             )
         }
     }
@@ -153,17 +156,25 @@ struct SheetCanvasView: View {
 }
 
 private extension View {
-    /// 削除ハンドラがあるときだけ長押しの削除メニューを付ける（書き出し時は素通し）
+    /// ハンドラがあるときだけ操作を付ける（書き出し時は素通し）。
+    /// タップ = 写真メニュー、長押しドラッグ → 他の写真にドロップ = 並べ替え。
     @ViewBuilder
-    func deleteContextMenu(for photo: SheetPhoto, onDelete: ((UUID) -> Void)?) -> some View {
-        if let onDelete {
-            contextMenu {
-                Button(role: .destructive) {
-                    onDelete(photo.id)
-                } label: {
-                    Label("この写真を削除", systemImage: "trash")
+    func photoInteraction(
+        _ photo: SheetPhoto,
+        onTap: ((UUID) -> Void)?,
+        onMove: ((UUID, UUID) -> Void)?
+    ) -> some View {
+        if let onTap, let onMove {
+            self
+                .onTapGesture { onTap(photo.id) }
+                .draggable(photo.id.uuidString)
+                .dropDestination(for: String.self) { items, _ in
+                    guard let first = items.first, let draggedId = UUID(uuidString: first) else {
+                        return false
+                    }
+                    onMove(draggedId, photo.id)
+                    return true
                 }
-            }
         } else {
             self
         }
@@ -181,7 +192,8 @@ private struct FilmStripRow: View {
     let frameAspect: Double
     let edgeText: String
     let imageCache: PhotoImageCache
-    let onDeletePhoto: ((UUID) -> Void)?
+    let onTapPhoto: ((UUID) -> Void)?
+    let onMovePhoto: ((UUID, UUID) -> Void)?
 
     /// フィルムベースの黒（純黒より僅かに浮かせて「焼かれた黒」に寄せる）
     private static let filmBlack = Color(red: 0.043, green: 0.043, blue: 0.05)
@@ -246,7 +258,7 @@ private struct FilmStripRow: View {
                 }
                 .frame(width: frameWidth, height: frameHeight)
                 .clipped()
-                .deleteContextMenu(for: photo, onDelete: onDeletePhoto)
+                .photoInteraction(photo, onTap: onTapPhoto, onMove: onMovePhoto)
             }
             Spacer(minLength: 0)
         }

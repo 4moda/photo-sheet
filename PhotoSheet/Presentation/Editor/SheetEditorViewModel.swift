@@ -142,6 +142,10 @@ final class SheetEditorViewModel {
         imageCache.remove(id)
     }
 
+    func movePhoto(_ draggedId: UUID, toPositionOf targetId: UUID) {
+        sheet.movePhoto(id: draggedId, toPositionOf: targetId)
+    }
+
     func removeAllPhotos() {
         sheet.photos = []
         imageCache.removeAll()

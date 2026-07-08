@@ -4,6 +4,8 @@ name: Device Build (unsigned IPA)
 # ダウンロードした IPA を Sideloadly / AltStore で無料 Apple ID 署名して実機にインストールする。
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   build-ipa:

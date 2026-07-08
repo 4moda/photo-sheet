@@ -190,6 +190,12 @@ struct FloatingControlBar: View {
                 }
                 .pickerStyle(.segmented)
             }
+            labeledRow("縁の文字") {
+                TextField("エッジテキスト", text: $viewModel.sheet.layout.filmEdgeText)
+                    .textFieldStyle(.roundedBorder)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+            }
         }
     }
 
