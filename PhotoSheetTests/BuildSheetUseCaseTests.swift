@@ -8,11 +8,18 @@ final class BuildSheetUseCaseTests: XCTestCase {
         }
     }
 
-    func testAppliesDefaultColumnsBasedOnCount() {
-        let useCase = BuildSheetUseCase()
-        XCTAssertEqual(useCase(photos: makePhotos(3)).layout.columns, 2)
-        XCTAssertEqual(useCase(photos: makePhotos(12)).layout.columns, 4)
-        XCTAssertEqual(useCase(photos: makePhotos(36)).layout.columns, 6)
+    func testDefaultLayoutUsesSixColumns() {
+        let sheet = BuildSheetUseCase()(photos: makePhotos(3))
+        XCTAssertEqual(sheet.layout.columns, 6)
+    }
+
+    func testKeepsUserAdjustedColumns() {
+        var current = Sheet(photos: [], layout: .default)
+        current.layout.columns = 3
+
+        let sheet = BuildSheetUseCase()(photos: makePhotos(20), basedOn: current)
+
+        XCTAssertEqual(sheet.layout.columns, 3)
     }
 
     func testKeepsOtherLayoutSettings() {
@@ -26,7 +33,6 @@ final class BuildSheetUseCaseTests: XCTestCase {
         XCTAssertEqual(sheet.layout.background, .black)
         XCTAssertTrue(sheet.layout.showFilename)
         XCTAssertEqual(sheet.layout.style, .filmStrip)
-        XCTAssertEqual(sheet.layout.columns, 4)
     }
 
     func testKeepsTitleAndCaption() {

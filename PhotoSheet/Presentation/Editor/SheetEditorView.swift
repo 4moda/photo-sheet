@@ -10,7 +10,6 @@ struct SheetEditorView: View {
     @State private var showPhotosPicker = false
     @State private var showFolderImporter = false
     @State private var showZipImporter = false
-    @State private var showAddDialog = false
 
     init(viewModel: SheetEditorViewModel, imageCache: PhotoImageCache) {
         _viewModel = State(initialValue: viewModel)
@@ -31,11 +30,6 @@ struct SheetEditorView: View {
         }
         .fileImporter(isPresented: $showZipImporter, allowedContentTypes: [.zip]) { result in
             viewModel.importZip(result)
-        }
-        .confirmationDialog("写真を追加", isPresented: $showAddDialog) {
-            Button("フォトライブラリから") { showPhotosPicker = true }
-            Button("フォルダから") { showFolderImporter = true }
-            Button("ZIP ファイルから") { showZipImporter = true }
         }
         .sheet(isPresented: $viewModel.isSharePresented) {
             if let image = viewModel.shareImage {
@@ -77,11 +71,9 @@ struct SheetEditorView: View {
                 }
             }
             .overlay(alignment: .bottom) {
-                FloatingControlBar(viewModel: viewModel) {
-                    showAddDialog = true
-                }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
+                FloatingControlBar(viewModel: viewModel)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
             }
         }
     }
@@ -127,7 +119,7 @@ struct SheetEditorView: View {
                     }
                 }
             } label: {
-                Label("メニュー", systemImage: "ellipsis.circle")
+                Label("写真を追加", systemImage: "plus")
             }
         }
     }

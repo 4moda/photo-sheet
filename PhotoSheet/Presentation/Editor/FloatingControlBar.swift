@@ -1,50 +1,36 @@
 import SwiftUI
 
 /// 画面下部に浮かぶツールバー。アイコンをタップすると該当する設定パネルだけがバーの上に開く。
-/// プレビュー領域を常に最大限確保するためのデザイン。
+/// 項目は意味ごとに 3 グループ（見た目 / 用紙 / タイトル）+ 保存・共有の計 5 個に抑える。
 struct FloatingControlBar: View {
     @Bindable var viewModel: SheetEditorViewModel
-    let onAddPhotos: () -> Void
 
     @State private var selectedTool: Tool?
 
     enum Tool: String, CaseIterable, Identifiable {
-        case style
-        case columns
-        case aspect
-        case paper
-        case text
+        /// スタイル・列数・セル比率・ファイル名
         case appearance
+        /// 用紙フォーマット・余白・背景
+        case paper
+        /// タイトル・サブタイトル
+        case text
 
         var id: String { rawValue }
 
         var icon: String {
             switch self {
-            case .style: "film"
-            case .columns: "square.grid.3x3"
-            case .aspect: "aspectratio"
+            case .appearance: "square.grid.3x3"
             case .paper: "rectangle.portrait"
             case .text: "textformat"
-            case .appearance: "paintpalette"
             }
         }
 
         var title: String {
             switch self {
-            case .style: "スタイル"
-            case .columns: "列数"
-            case .aspect: "セル比率"
+            case .appearance: "見た目"
             case .paper: "用紙"
             case .text: "タイトル"
-            case .appearance: "余白と背景"
             }
-        }
-    }
-
-    /// フィルムモードではセル比率（3:2 固定）を出さない
-    private var visibleTools: [Tool] {
-        Tool.allCases.filter { tool in
-            tool != .aspect || viewModel.sheet.layout.style == .grid
         }
     }
 
@@ -63,18 +49,11 @@ struct FloatingControlBar: View {
 
     private var bar: some View {
         HStack(spacing: 4) {
-            barButton(icon: "plus", accessibilityLabel: "写真を追加") {
-                selectedTool = nil
-                onAddPhotos()
-            }
-
-            barDivider
-
-            ForEach(visibleTools) { tool in
+            ForEach(Tool.allCases) { tool in
                 toolButton(tool)
             }
 
-            barDivider
+            Divider().frame(height: 22)
 
             barButton(icon: "square.and.arrow.down", accessibilityLabel: "写真に保存") {
                 selectedTool = nil
@@ -90,10 +69,6 @@ struct FloatingControlBar: View {
         .background(.regularMaterial, in: Capsule())
         .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
         .disabled(viewModel.isExporting)
-    }
-
-    private var barDivider: some View {
-        Divider().frame(height: 22)
     }
 
     private func toolButton(_ tool: Tool) -> some View {
@@ -117,7 +92,7 @@ struct FloatingControlBar: View {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(isHighlighted ? Color.white : Color.primary)
-                .frame(width: 38, height: 38)
+                .frame(width: 40, height: 40)
                 .background(
                     Circle().fill(isHighlighted ? Color.accentColor : Color.clear)
                 )
@@ -144,72 +119,84 @@ struct FloatingControlBar: View {
     @ViewBuilder
     private func panelContent(_ tool: Tool) -> some View {
         switch tool {
-        case .style:
-            Picker("スタイル", selection: $viewModel.sheet.layout.style) {
-                ForEach(SheetStyle.allCases, id: \.self) { style in
-                    Text(style.displayName).tag(style)
-                }
-            }
-            .pickerStyle(.segmented)
+        case .appearance:
+            appearancePanel
+        case .paper:
+            paperPanel
+        case .text:
+            TextField("タイトル", text: $viewModel.sheet.title)
+                .textFieldStyle(.roundedBorder)
+            TextField("サブタイトル（日付・ロール番号など）", text: $viewModel.sheet.caption)
+                .textFieldStyle(.roundedBorder)
+        }
+    }
 
-        case .columns:
+    @ViewBuilder
+    private var appearancePanel: some View {
+        Picker("スタイル", selection: $viewModel.sheet.layout.style) {
+            ForEach(SheetStyle.allCases, id: \.self) { style in
+                Text(style.displayName).tag(style)
+            }
+        }
+        .pickerStyle(.segmented)
+
+        labeledRow("列数") {
             Picker("列数", selection: $viewModel.sheet.layout.columns) {
                 ForEach(LayoutConfig.columnPresets, id: \.self) { columns in
                     Text("\(columns)").tag(columns)
                 }
             }
             .pickerStyle(.segmented)
+        }
 
-        case .aspect:
-            Picker("セル比率", selection: $viewModel.sheet.layout.cellAspect) {
-                ForEach(CellAspect.allCases, id: \.self) { aspect in
-                    Text(aspect.displayName).tag(aspect)
+        if viewModel.sheet.layout.style == .grid {
+            labeledRow("比率") {
+                Picker("セル比率", selection: $viewModel.sheet.layout.cellAspect) {
+                    ForEach(CellAspect.allCases, id: \.self) { aspect in
+                        Text(aspect.displayName).tag(aspect)
+                    }
                 }
+                .pickerStyle(.segmented)
             }
-            .pickerStyle(.segmented)
+            Toggle("ファイル名を表示", isOn: $viewModel.sheet.layout.showFilename)
+                .font(.subheadline)
+        }
+    }
 
-        case .paper:
-            Picker("用紙", selection: $viewModel.sheet.layout.paperFormat) {
-                ForEach(PaperFormat.allCases, id: \.self) { format in
-                    Text(format.displayName).tag(format)
-                }
+    @ViewBuilder
+    private var paperPanel: some View {
+        Picker("用紙", selection: $viewModel.sheet.layout.paperFormat) {
+            ForEach(PaperFormat.allCases, id: \.self) { format in
+                Text(format.displayName).tag(format)
             }
-            .pickerStyle(.segmented)
+        }
+        .pickerStyle(.segmented)
 
-        case .text:
-            TextField("タイトル", text: $viewModel.sheet.title)
-                .textFieldStyle(.roundedBorder)
-            TextField("サブタイトル（日付・ロール番号など）", text: $viewModel.sheet.caption)
-                .textFieldStyle(.roundedBorder)
+        labeledRow("外余白") {
+            Slider(value: $viewModel.sheet.layout.marginRatio, in: 0...0.1)
+        }
+        labeledRow("間隔") {
+            Slider(value: $viewModel.sheet.layout.spacingRatio, in: 0...0.05)
+        }
+        HStack(spacing: 12) {
+            Text("背景")
+                .font(.subheadline)
+                .frame(width: 52, alignment: .leading)
+            backgroundButton(.white)
+            backgroundButton(.black)
+            backgroundButton(.paperGray)
+            ColorPicker("カスタム背景色", selection: customColorBinding)
+                .labelsHidden()
+            Spacer()
+        }
+    }
 
-        case .appearance:
-            HStack {
-                Text("外余白")
-                    .font(.subheadline)
-                    .frame(width: 52, alignment: .leading)
-                Slider(value: $viewModel.sheet.layout.marginRatio, in: 0...0.1)
-            }
-            HStack {
-                Text("間隔")
-                    .font(.subheadline)
-                    .frame(width: 52, alignment: .leading)
-                Slider(value: $viewModel.sheet.layout.spacingRatio, in: 0...0.05)
-            }
-            HStack(spacing: 12) {
-                Text("背景")
-                    .font(.subheadline)
-                    .frame(width: 52, alignment: .leading)
-                backgroundButton(.white)
-                backgroundButton(.black)
-                backgroundButton(.paperGray)
-                ColorPicker("カスタム背景色", selection: customColorBinding)
-                    .labelsHidden()
-                Spacer()
-            }
-            if viewModel.sheet.layout.style == .grid {
-                Toggle("ファイル名を表示", isOn: $viewModel.sheet.layout.showFilename)
-                    .font(.subheadline)
-            }
+    private func labeledRow(_ label: String, @ViewBuilder content: () -> some View) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .frame(width: 52, alignment: .leading)
+            content()
         }
     }
 

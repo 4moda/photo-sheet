@@ -1,5 +1,5 @@
-/// 写真からシートを構築する。列数は枚数に応じたデフォルトを適用し、
-/// レイアウト設定・タイトル・キャプションは現在のシートから引き継ぐ。
+/// 写真からシートを構築する。レイアウト設定・タイトル・キャプションは現在のシートから引き継ぐ。
+/// 列数はユーザー設定（デフォルト 6 列）をそのまま維持する。
 struct BuildSheetUseCase {
     func callAsFunction(
         photos: [SheetPhoto],
@@ -7,7 +7,6 @@ struct BuildSheetUseCase {
     ) -> Sheet {
         var sheet = current
         sheet.photos = photos
-        sheet.layout.columns = LayoutConfig.defaultColumns(forPhotoCount: photos.count)
         return sheet
     }
 }

@@ -80,8 +80,9 @@ struct LayoutConfig: Equatable {
     /// フィルムストリップの縁に白抜きで入れるエッジテキスト
     var filmEdgeText: String
 
+    /// デフォルトは 6 列（35mm ベタ焼きの伝統的な列数）
     static let `default` = LayoutConfig(
-        columns: 4,
+        columns: 6,
         cellAspect: .film3x2,
         spacingRatio: 0.012,
         marginRatio: 0.05,
@@ -94,15 +95,4 @@ struct LayoutConfig: Equatable {
 
     /// 選べる列数のプリセット（6 列は 35mm ベタ焼きの伝統的な列数）
     static let columnPresets = [2, 3, 4, 6]
-
-    /// 枚数に応じたデフォルト列数。
-    /// 伝統的なベタ焼きは 6 列固定だが、少枚数では間延びするため枚数に応じて寄せる。
-    static func defaultColumns(forPhotoCount count: Int) -> Int {
-        switch count {
-        case ...4: 2
-        case ...9: 3
-        case ...16: 4
-        default: 6
-        }
-    }
 }
