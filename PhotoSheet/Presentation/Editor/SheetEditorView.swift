@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 struct SheetEditorView: View {
     @State private var viewModel: SheetEditorViewModel
     private let imageCache: PhotoImageCache
+    @Environment(\.dismiss) private var dismiss
 
     @State private var showPhotosPicker = false
     @State private var showFolderImporter = false
@@ -48,6 +49,9 @@ struct SheetEditorView: View {
             if viewModel.isImporting || viewModel.isExporting {
                 loadingOverlay
             }
+        }
+        .onDisappear {
+            viewModel.persist()
         }
     }
 
@@ -93,6 +97,11 @@ struct SheetEditorView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Button("完了") {
+                dismiss()
+            }
+        }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 Button {

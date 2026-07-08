@@ -149,7 +149,24 @@ struct FloatingControlBar: View {
             .pickerStyle(.segmented)
         }
 
-        if viewModel.sheet.layout.style == .grid {
+        // スタイル切替でパネルの高さが変わってバーが上下しないよう、
+        // 両バリアントを重ねて常に最大高さを確保する
+        ZStack(alignment: .topLeading) {
+            gridOnlyOptions
+                .opacity(isGridStyle ? 1 : 0)
+                .allowsHitTesting(isGridStyle)
+            filmOnlyOptions
+                .opacity(isGridStyle ? 0 : 1)
+                .allowsHitTesting(!isGridStyle)
+        }
+    }
+
+    private var isGridStyle: Bool {
+        viewModel.sheet.layout.style == .grid
+    }
+
+    private var gridOnlyOptions: some View {
+        VStack(alignment: .leading, spacing: 12) {
             labeledRow("比率") {
                 Picker("セル比率", selection: $viewModel.sheet.layout.cellAspect) {
                     ForEach(CellAspect.allCases, id: \.self) { aspect in
@@ -160,6 +177,19 @@ struct FloatingControlBar: View {
             }
             Toggle("ファイル名を表示", isOn: $viewModel.sheet.layout.showFilename)
                 .font(.subheadline)
+        }
+    }
+
+    private var filmOnlyOptions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            labeledRow("フィルム") {
+                Picker("フィルム", selection: $viewModel.sheet.layout.filmFormat) {
+                    ForEach(FilmFormat.allCases, id: \.self) { format in
+                        Text(format.displayName).tag(format)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
         }
     }
 

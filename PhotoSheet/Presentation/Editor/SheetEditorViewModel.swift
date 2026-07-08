@@ -11,6 +11,11 @@ final class SheetEditorViewModel {
     private let buildSheetUseCase: BuildSheetUseCase
     private let exportSheetUseCase: ExportSheetUseCase
     private let imageCache: PhotoImageCache
+    private let projectRepository: SheetProjectRepository
+
+    /// 編集対象プロジェクトの識別情報
+    private let projectId: UUID
+    private let projectCreatedAt: Date
 
     var sheet = Sheet(photos: [], layout: .default)
     var isImporting = false
@@ -31,15 +36,47 @@ final class SheetEditorViewModel {
     }
 
     init(
+        project: SheetProject,
         importPhotosUseCase: ImportPhotosUseCase,
         buildSheetUseCase: BuildSheetUseCase,
         exportSheetUseCase: ExportSheetUseCase,
-        imageCache: PhotoImageCache
+        imageCache: PhotoImageCache,
+        projectRepository: SheetProjectRepository
     ) {
+        self.projectId = project.id
+        self.projectCreatedAt = project.createdAt
+        self.sheet = project.sheet
         self.importPhotosUseCase = importPhotosUseCase
         self.buildSheetUseCase = buildSheetUseCase
         self.exportSheetUseCase = exportSheetUseCase
         self.imageCache = imageCache
+        self.projectRepository = projectRepository
+        // 前のプロジェクトの画像キャッシュを持ち越さない
+        imageCache.removeAll()
+    }
+
+    // MARK: - Persistence
+
+    /// プロジェクトをローカルへ保存する（エディタを閉じるときに呼ぶ）。
+    /// 何も作らずに閉じた空プロジェクトは残さない。
+    func persist() {
+        let project = SheetProject(
+            id: projectId,
+            createdAt: projectCreatedAt,
+            updatedAt: Date(),
+            sheet: sheet
+        )
+        Task {
+            if project.sheet.photos.isEmpty && project.sheet.title.isEmpty {
+                try? await projectRepository.delete(id: project.id)
+                return
+            }
+            // 一覧用サムネイルは実物と同じキャンバスを小さくレンダリングする（WYSIWYG）
+            let thumbnail: Data? = project.sheet.photos.isEmpty
+                ? nil
+                : try? exportSheetUseCase.render(sheet: project.sheet, targetPixelWidth: 600)
+            try? await projectRepository.save(project, thumbnailPNG: thumbnail)
+        }
     }
 
     // MARK: - Import

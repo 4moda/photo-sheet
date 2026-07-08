@@ -66,7 +66,7 @@ final class SheetLayoutMathTests: XCTestCase {
         let width = 1000.0
 
         let frameWidth = SheetLayoutMath.filmFrameWidth(sheet.layout, width: width)
-        let stripHeight = SheetLayoutMath.filmStripHeight(frameWidth: frameWidth)
+        let stripHeight = SheetLayoutMath.filmStripHeight(frameWidth: frameWidth, frameAspect: 1.5)
         let spacing = SheetLayoutMath.spacing(sheet.layout, width: width)
         let margin = SheetLayoutMath.margin(sheet.layout, width: width)
         let expected = margin * 2 + stripHeight * 2 + spacing
@@ -80,8 +80,36 @@ final class SheetLayoutMathTests: XCTestCase {
 
     func testFilmStripHeightComposition() {
         let frameWidth = 150.0
-        let expected = frameWidth * (0.10 * 2 + 0.08 * 2) + frameWidth / 1.5
-        XCTAssertEqual(SheetLayoutMath.filmStripHeight(frameWidth: frameWidth), expected, accuracy: 0.001)
+        // 35mm フルフレーム（3:2 横）
+        let fullFrame = frameWidth * (0.10 * 2 + 0.08 * 2) + frameWidth / 1.5
+        XCTAssertEqual(
+            SheetLayoutMath.filmStripHeight(frameWidth: frameWidth, frameAspect: 1.5),
+            fullFrame,
+            accuracy: 0.001
+        )
+        // ハーフフレーム（3:4 縦）はコマが縦長になるぶんストリップが高い
+        let halfFrame = frameWidth * (0.10 * 2 + 0.08 * 2) + frameWidth / 0.75
+        XCTAssertEqual(
+            SheetLayoutMath.filmStripHeight(frameWidth: frameWidth, frameAspect: 0.75),
+            halfFrame,
+            accuracy: 0.001
+        )
+    }
+
+    func testFilmFormatAspects() {
+        XCTAssertEqual(FilmFormat.fullFrame.frameAspect, 1.5, accuracy: 0.001)
+        XCTAssertEqual(FilmFormat.halfFrame.frameAspect, 0.75, accuracy: 0.001)
+    }
+
+    func testFilmNeedsRotationWhenOrientationsMismatch() {
+        // 35mm 横コマ × 縦写真 → 回転
+        XCTAssertTrue(SheetLayoutMath.filmNeedsRotation(photoAspect: 0.75, frameAspect: 1.5))
+        // 35mm 横コマ × 横写真 → そのまま
+        XCTAssertFalse(SheetLayoutMath.filmNeedsRotation(photoAspect: 1.5, frameAspect: 1.5))
+        // ハーフ縦コマ × 横写真 → 回転
+        XCTAssertTrue(SheetLayoutMath.filmNeedsRotation(photoAspect: 1.5, frameAspect: 0.75))
+        // ハーフ縦コマ × 縦写真 → そのまま
+        XCTAssertFalse(SheetLayoutMath.filmNeedsRotation(photoAspect: 0.75, frameAspect: 0.75))
     }
 
     func testGridOriginalAspectUsesTallestPhotoInRow() {

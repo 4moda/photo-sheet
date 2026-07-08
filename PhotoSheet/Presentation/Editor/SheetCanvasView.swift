@@ -120,6 +120,7 @@ struct SheetCanvasView: View {
                 frameWidth: frameWidth,
                 contentWidth: contentWidth,
                 separator: separator,
+                frameAspect: layout.filmFormat.frameAspect,
                 edgeText: layout.filmEdgeText,
                 imageCache: imageCache,
                 onDeletePhoto: onDeletePhoto
@@ -177,6 +178,7 @@ private struct FilmStripRow: View {
     let frameWidth: Double
     let contentWidth: Double
     let separator: Double
+    let frameAspect: Double
     let edgeText: String
     let imageCache: PhotoImageCache
     let onDeletePhoto: ((UUID) -> Void)?
@@ -184,7 +186,7 @@ private struct FilmStripRow: View {
     /// フィルムベースの黒（純黒より僅かに浮かせて「焼かれた黒」に寄せる）
     private static let filmBlack = Color(red: 0.043, green: 0.043, blue: 0.05)
 
-    private var frameHeight: Double { frameWidth / SheetLayoutMath.filmFrameAspect }
+    private var frameHeight: Double { frameWidth / frameAspect }
     private var edgeBandHeight: Double { frameWidth * SheetLayoutMath.filmEdgeTextRatio }
     private var sprocketBandHeight: Double { frameWidth * SheetLayoutMath.filmSprocketRatio }
 
@@ -229,7 +231,12 @@ private struct FilmStripRow: View {
         HStack(alignment: .top, spacing: separator) {
             ForEach(photos) { photo in
                 Group {
-                    if let image = imageCache.image(for: photo) {
+                    // フィルムの物理制約: 長辺はストリップ方向。向きが合わない写真は回転して収める
+                    let rotate = SheetLayoutMath.filmNeedsRotation(
+                        photoAspect: photo.aspectRatio,
+                        frameAspect: frameAspect
+                    )
+                    if let image = imageCache.image(for: photo, rotatedQuarterTurn: rotate) {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()

@@ -1,15 +1,31 @@
 import Foundation
 
 /// シートの描画スタイル
-enum SheetStyle: String, CaseIterable, Equatable {
+enum SheetStyle: String, CaseIterable, Equatable, Codable {
     /// 均等グリッド（インデックスプリント風）
     case grid
-    /// フィルムストリップ（ベタ焼き風）: 行 = 黒いレベート帯の 6 コマストリップ
+    /// フィルムストリップ（ベタ焼き風）: 行 = 黒いレベート帯のストリップ
     case filmStrip
 }
 
+/// フィルムの種類。コマの向きと比率が決まる。
+enum FilmFormat: String, CaseIterable, Equatable, Codable {
+    /// 35mm フルフレーム: 36×24mm = 3:2 横向き
+    case fullFrame
+    /// ハーフフレーム: 18×24mm = 3:4 縦向き
+    case halfFrame
+
+    /// コマの縦横比（幅 / 高さ）
+    var frameAspect: Double {
+        switch self {
+        case .fullFrame: 3.0 / 2.0
+        case .halfFrame: 3.0 / 4.0
+        }
+    }
+}
+
 /// 用紙フォーマット。固定比率を選ぶと定型プリントのようにシート全体の縦横比が固定される。
-enum PaperFormat: String, CaseIterable, Equatable {
+enum PaperFormat: String, CaseIterable, Equatable, Codable {
     case flexible
     case print8x10
     case print4x6
@@ -28,8 +44,8 @@ enum PaperFormat: String, CaseIterable, Equatable {
     }
 }
 
-/// セルの縦横比
-enum CellAspect: String, CaseIterable, Equatable {
+/// セルの縦横比（grid スタイル用）
+enum CellAspect: String, CaseIterable, Equatable, Codable {
     /// 各写真の元の比率を尊重する
     case original
     /// 35mm フィルムのコマと同じ 3:2（ベタ焼き風）
@@ -39,7 +55,7 @@ enum CellAspect: String, CaseIterable, Equatable {
 }
 
 /// プラットフォーム非依存の色表現
-struct RGBAColor: Equatable {
+struct RGBAColor: Equatable, Codable {
     var red: Double
     var green: Double
     var blue: Double
@@ -47,7 +63,7 @@ struct RGBAColor: Equatable {
 }
 
 /// シートの背景
-enum SheetBackground: Equatable {
+enum SheetBackground: Equatable, Codable {
     case white
     case black
     case paperGray
@@ -65,7 +81,7 @@ enum SheetBackground: Equatable {
 
 /// シートのレイアウト設定。
 /// 余白・間隔はシート幅に対する「比率」で持つため、どの解像度で描画しても相似形になる（WYSIWYG の要）。
-struct LayoutConfig: Equatable {
+struct LayoutConfig: Equatable, Codable {
     var columns: Int
     var cellAspect: CellAspect
     /// セル間隔（シート幅に対する比率）
@@ -77,6 +93,8 @@ struct LayoutConfig: Equatable {
     var showFilename: Bool
     var style: SheetStyle
     var paperFormat: PaperFormat
+    /// フィルムの種類（filmStrip スタイルのみ）
+    var filmFormat: FilmFormat
     /// フィルムストリップの縁に白抜きで入れるエッジテキスト
     var filmEdgeText: String
 
@@ -90,6 +108,7 @@ struct LayoutConfig: Equatable {
         showFilename: false,
         style: .grid,
         paperFormat: .flexible,
+        filmFormat: .fullFrame,
         filmEdgeText: "PHOTO SHEET 400"
     )
 

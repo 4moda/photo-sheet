@@ -6,10 +6,7 @@ struct PhotoSheetApp: App {
 
     var body: some Scene {
         WindowGroup {
-            SheetEditorView(
-                viewModel: container.makeSheetEditorViewModel(),
-                imageCache: container.imageCache
-            )
+            ProjectListView(container: container)
         }
     }
 }

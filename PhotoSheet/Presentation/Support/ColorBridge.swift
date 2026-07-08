@@ -37,6 +37,15 @@ extension SheetStyle {
     }
 }
 
+extension FilmFormat {
+    var displayName: String {
+        switch self {
+        case .fullFrame: "35mm"
+        case .halfFrame: "ハーフ"
+        }
+    }
+}
+
 extension PaperFormat {
     var displayName: String {
         switch self {

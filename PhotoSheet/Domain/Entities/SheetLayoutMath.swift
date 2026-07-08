@@ -18,8 +18,8 @@ enum SheetLayoutMath {
     static let filmEdgeTextRatio = 0.10
     /// film: スプロケット帯の高さ（コマ幅比）
     static let filmSprocketRatio = 0.08
-    /// film: コマは 3:2 横向き固定（フィルムの物理形状）
-    static let filmFrameAspect = 3.0 / 2.0
+    /// grid の 3:2 セル用の比率（35mm フルフレームと同じ）
+    static let film3x2Aspect = 3.0 / 2.0
     /// film: 1 コマあたりのスプロケット穴数（35mm 実物と同じ 8 パーフォレーション）
     static let sprocketHolesPerFrame = 8
 
@@ -63,7 +63,7 @@ enum SheetLayoutMath {
 
     static func gridPhotoHeight(_ photo: SheetPhoto, layout: LayoutConfig, cellWidth: Double) -> Double {
         switch layout.cellAspect {
-        case .film3x2: cellWidth / filmFrameAspect
+        case .film3x2: cellWidth / film3x2Aspect
         case .square: cellWidth
         case .original: cellWidth / max(photo.aspectRatio, 0.05)
         }
@@ -92,9 +92,16 @@ enum SheetLayoutMath {
         return (content - separator * Double(layout.columns - 1)) / Double(layout.columns)
     }
 
-    static func filmStripHeight(frameWidth: Double) -> Double {
+    static func filmStripHeight(frameWidth: Double, frameAspect: Double) -> Double {
         let bands = frameWidth * (filmEdgeTextRatio * 2 + filmSprocketRatio * 2)
-        return bands + frameWidth / filmFrameAspect
+        return bands + frameWidth / frameAspect
+    }
+
+    /// フィルムでは長辺がストリップ方向を向くのが物理制約。
+    /// 写真の向きとコマの向きが一致しないときは 90 度回転して収める。
+    /// （35mm 横コマ × 縦写真 → 回転、ハーフ縦コマ × 横写真 → 回転）
+    static func filmNeedsRotation(photoAspect: Double, frameAspect: Double) -> Bool {
+        (photoAspect < 1) != (frameAspect < 1)
     }
 
     // MARK: - 全体の高さ
@@ -114,7 +121,11 @@ enum SheetLayoutMath {
                 .reduce(0, +)
         case .filmStrip:
             let frameWidth = filmFrameWidth(layout, width: width)
-            contentHeight = Double(ranges.count) * filmStripHeight(frameWidth: frameWidth)
+            let stripHeight = filmStripHeight(
+                frameWidth: frameWidth,
+                frameAspect: layout.filmFormat.frameAspect
+            )
+            contentHeight = Double(ranges.count) * stripHeight
         }
 
         let headerH = headerHeight(sheet, width: width)
