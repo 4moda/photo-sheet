@@ -14,6 +14,8 @@ struct FloatingControlBar: View {
         case paper
         /// タイトル・サブタイトル
         case text
+        /// スクロール動画の書き出し設定
+        case video
 
         var id: String { rawValue }
 
@@ -22,6 +24,7 @@ struct FloatingControlBar: View {
             case .appearance: "square.grid.3x3"
             case .paper: "rectangle.portrait"
             case .text: "textformat"
+            case .video: "film.stack"
             }
         }
 
@@ -30,6 +33,7 @@ struct FloatingControlBar: View {
             case .appearance: "見た目"
             case .paper: "用紙"
             case .text: "タイトル"
+            case .video: "動画"
             }
         }
     }
@@ -128,6 +132,8 @@ struct FloatingControlBar: View {
                 .textFieldStyle(.roundedBorder)
             TextField("サブタイトル（日付・ロール番号など）", text: $viewModel.sheet.caption)
                 .textFieldStyle(.roundedBorder)
+        case .video:
+            videoPanel
         }
     }
 
@@ -259,5 +265,73 @@ struct FloatingControlBar: View {
             get: { Color(rgba: viewModel.sheet.layout.background.color) },
             set: { viewModel.sheet.layout.background = .custom(RGBAColor(color: $0)) }
         )
+    }
+
+    // MARK: - 動画パネル
+
+    @ViewBuilder
+    private var videoPanel: some View {
+        // 方向選択
+        labeledRow("方向") {
+            HStack(spacing: 6) {
+                ForEach(VideoExportConfig.ScrollDirection.allCases, id: \.self) { dir in
+                    let isSelected = viewModel.videoConfig.direction == dir
+                    Button {
+                        viewModel.videoConfig.direction = dir
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: dir.icon)
+                                .font(.system(size: 14))
+                            Text(dir.displayName)
+                                .font(.caption2)
+                        }
+                        .frame(width: 52, height: 40)
+                        .foregroundStyle(isSelected ? Color.white : Color.primary)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(isSelected ? Color.accentColor : Color.gray.opacity(0.1))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+            }
+        }
+
+        // 動画の長さ
+        labeledRow("長さ") {
+            Picker("動画の長さ", selection: $viewModel.videoConfig.durationSeconds) {
+                ForEach(VideoExportConfig.durationPresets, id: \.self) { secs in
+                    Text("\(Int(secs))秒").tag(secs)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+
+        // 操作ボタン
+        HStack(spacing: 12) {
+            Button {
+                viewModel.saveVideoToPhotoLibrary()
+            } label: {
+                Label("動画を保存", systemImage: "square.and.arrow.down")
+                    .font(.subheadline)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(viewModel.isExporting || viewModel.sheet.photos.isEmpty)
+
+            Button {
+                viewModel.presentVideoShareSheet()
+            } label: {
+                Label("共有", systemImage: "square.and.arrow.up")
+                    .font(.subheadline)
+            }
+            .buttonStyle(.bordered)
+            .disabled(viewModel.isExporting || viewModel.sheet.photos.isEmpty)
+
+            if viewModel.isExporting {
+                ProgressView()
+                    .controlSize(.small)
+            }
+        }
     }
 }

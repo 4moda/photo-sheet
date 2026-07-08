@@ -57,3 +57,21 @@ extension PaperFormat {
         }
     }
 }
+
+extension VideoExportConfig.ScrollDirection {
+    var displayName: String {
+        switch self {
+        case .vertical:   "縦"
+        case .horizontal: "横"
+        case .diagonal:   "斜め"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .vertical:   "arrow.down"
+        case .horizontal: "arrow.right"
+        case .diagonal:   "arrow.down.right"
+        }
+    }
+}
