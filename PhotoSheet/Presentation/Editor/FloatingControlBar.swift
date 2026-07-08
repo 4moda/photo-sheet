@@ -271,41 +271,49 @@ struct FloatingControlBar: View {
 
     @ViewBuilder
     private var videoPanel: some View {
-        // 方向選択
-        labeledRow("方向") {
-            HStack(spacing: 6) {
-                ForEach(VideoExportConfig.ScrollDirection.allCases, id: \.self) { dir in
-                    let isSelected = viewModel.videoConfig.direction == dir
-                    Button {
-                        viewModel.videoConfig.direction = dir
-                    } label: {
-                        VStack(spacing: 2) {
-                            Image(systemName: dir.icon)
-                                .font(.system(size: 14))
-                            Text(dir.displayName)
-                                .font(.caption2)
-                        }
-                        .frame(width: 52, height: 40)
-                        .foregroundStyle(isSelected ? Color.white : Color.primary)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(isSelected ? Color.accentColor : Color.gray.opacity(0.1))
-                        )
-                    }
-                    .buttonStyle(.plain)
+        // スクロール速度
+        labeledRow("速度") {
+            Picker("速度", selection: $viewModel.videoConfig.speed) {
+                ForEach(VideoExportConfig.Speed.allCases, id: \.self) { s in
+                    Text(s.displayName).tag(s)
                 }
+            }
+            .pickerStyle(.segmented)
+        }
+
+        // 表示行数（ズーム）
+        labeledRow("表示行数") {
+            HStack(spacing: 10) {
+                Button {
+                    viewModel.videoConfig.visibleRows = max(1, viewModel.videoConfig.visibleRows - 1)
+                } label: {
+                    Image(systemName: "minus.circle")
+                        .font(.title3)
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.videoConfig.visibleRows <= 1)
+
+                Text("\(viewModel.videoConfig.visibleRows)行")
+                    .frame(minWidth: 36)
+                    .monospacedDigit()
+
+                Button {
+                    viewModel.videoConfig.visibleRows = min(8, viewModel.videoConfig.visibleRows + 1)
+                } label: {
+                    Image(systemName: "plus.circle")
+                        .font(.title3)
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.videoConfig.visibleRows >= 8)
+
                 Spacer()
             }
         }
 
-        // 動画の長さ
-        labeledRow("長さ") {
-            Picker("動画の長さ", selection: $viewModel.videoConfig.durationSeconds) {
-                ForEach(VideoExportConfig.durationPresets, id: \.self) { secs in
-                    Text("\(Int(secs))秒").tag(secs)
-                }
-            }
-            .pickerStyle(.segmented)
+        // 全体フェーズ
+        labeledRow("全体表示") {
+            Toggle("前後に全体表示", isOn: $viewModel.videoConfig.showOverview)
+                .labelsHidden()
         }
 
         // 操作ボタン

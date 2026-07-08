@@ -1,23 +1,36 @@
 import Foundation
 
-/// スクロール動画の書き出し設定
+/// スクロール動画の書き出し設定（V2: Z スキャン方式）
 struct VideoExportConfig: Equatable, Codable {
 
-    /// カメラの移動方向
-    enum ScrollDirection: String, CaseIterable, Equatable, Codable {
-        /// 縦（上→下）: キャンバスを垂直にスクロール
-        case vertical
-        /// 横（左→右）: キャンバスを 2× 幅でレンダリングし、左列から右列へ流れる
-        case horizontal
-        /// 斜め（左上→右下）: 縦と横を同時に動かすシネマティックな走査
-        case diagonal
+    /// スクロール速度プリセット（キャンバス座標系での px/秒）
+    enum Speed: String, CaseIterable, Equatable, Codable {
+        case slow   // 80 px/sec: じっくり見られる
+        case medium // 160 px/sec: 標準
+        case fast   // 320 px/sec: テンポよく流れる
+
+        var canvasPixelsPerSecond: Double {
+            switch self {
+            case .slow:   80
+            case .medium: 160
+            case .fast:   320
+            }
+        }
     }
 
-    /// 動画の総再生時間（秒）
-    var durationSeconds: Double
-    /// カメラの移動方向
-    var direction: ScrollDirection
+    /// 1ストリップあたりの表示行数（＝ズーム具合）
+    /// 少ないほど写真が大きく、多いほど全体俯瞰に近い
+    var visibleRows: Int
 
-    static let `default` = VideoExportConfig(durationSeconds: 20, direction: .vertical)
-    static let durationPresets: [Double] = [10, 15, 20, 30]
+    /// スクロール速度
+    var speed: Speed
+
+    /// 前後に全体俯瞰フェーズ（静止）を挿入するか
+    var showOverview: Bool
+
+    static let `default` = VideoExportConfig(
+        visibleRows: 3,
+        speed: .medium,
+        showOverview: true
+    )
 }
