@@ -53,14 +53,25 @@ xcodegen generate
 open PhotoSheet.xcodeproj
 ```
 
-このリポジトリの開発は WSL2（Linux）上で行っており、ビルド・テストは GitHub Actions（macOS ランナー）で実行します。
+このリポジトリは Mac がなくても開発できる構成です（コア層は Linux でテスト、アプリ全体は GitHub Actions の macOS ランナーでビルド・テスト）。
 
-## CI
+## 開発ハーネス
 
-GitHub Actions（`.github/workflows/ci.yml`）で PR / push ごとに実行:
+AI・人間を問わず「誤りに早く気づける」ための多層ゲート:
 
-1. SwiftLint による静的解析
-2. `xcodebuild test`（iOS シミュレータ / Domain 単体テスト）— ビルド含む
+| 層 | 何を検証 | 速度 |
+|---|---|---|
+| 編集時フック（`.claude/settings.json`） | コア Swift のコンパイル | 数秒 |
+| `scripts/test-core.sh` | Domain + 永続化の単体テスト（Linux/WSL でローカル実行） | 数秒 |
+| CI: Core Tests (Linux) | 同上を ubuntu ランナーで（課金 1 倍） | ~1 分 |
+| CI: SwiftLint | 静的解析 | ~15 秒 |
+| CI: Build & Test (macOS) | アプリ全体ビルド + 全テスト + **Domain カバレッジ 80% ゲート** | ~4 分 |
+| Appetize Deploy | ブラウザ上の iOS シミュレータで目視確認 | 常時 |
+| Device Build | 実機用未署名 IPA（Sideloadly でインストール） | 毎 push |
+
+コア層（`PhotoSheet/Domain` + `PhotoSheet/Data/Persistence` + `PhotoSheetTests`）は SwiftPM パッケージ `PhotoSheetCore`（`Package.swift`）として Mac なしでビルド・テストできます。この範囲は Foundation のみ依存（Linux でコンパイル可能）に保つこと。
+
+開発の進め方・規約は [CLAUDE.md](CLAUDE.md) を参照。機能追加・バグ修正は Issue テンプレート（受け入れ条件つき）を起点にする。
 
 ## 将来のアイディア
 

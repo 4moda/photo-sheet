@@ -1,7 +1,12 @@
 import XCTest
+#if canImport(PhotoSheetCore)
+@testable import PhotoSheetCore
+#else
 @testable import PhotoSheet
+#endif
 
-@MainActor
+// クラス全体を @MainActor にすると Linux の XCTest が同期テストを呼べないため、
+// MainActor が必要な呼び出しはテスト内で await する。
 final class ExportSheetUseCaseTests: XCTestCase {
     private struct MockRenderer: SheetRenderer {
         @MainActor
@@ -32,10 +37,10 @@ final class ExportSheetUseCaseTests: XCTestCase {
         XCTAssertEqual(saver.savedData, Data([0x89, 0x50]))
     }
 
-    func testRenderReturnsRendererOutput() throws {
+    func testRenderReturnsRendererOutput() async throws {
         let useCase = ExportSheetUseCase(renderer: MockRenderer(), saver: MockSaver())
 
-        let data = try useCase.render(sheet: makeSheet())
+        let data = try await useCase.render(sheet: makeSheet())
 
         XCTAssertEqual(data, Data([0x89, 0x50]))
     }

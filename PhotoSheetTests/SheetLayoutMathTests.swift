@@ -1,5 +1,9 @@
 import XCTest
+#if canImport(PhotoSheetCore)
+@testable import PhotoSheetCore
+#else
 @testable import PhotoSheet
+#endif
 
 final class SheetLayoutMathTests: XCTestCase {
     private func makePhotos(_ count: Int, aspect: Double = 1.5) -> [SheetPhoto] {

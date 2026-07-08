@@ -1,5 +1,9 @@
 import XCTest
+#if canImport(PhotoSheetCore)
+@testable import PhotoSheetCore
+#else
 @testable import PhotoSheet
+#endif
 
 final class SheetTests: XCTestCase {
     private func makeSheet(_ names: [String]) -> Sheet {

@@ -1,6 +1,6 @@
 name: PhotoSheet
 options:
-  bundleIdPrefix: com.taigashimoda
+  bundleIdPrefix: dev.fourmoda
   deploymentTarget:
     iOS: "17.0"
 settings:
@@ -33,7 +33,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.taigashimoda.photosheet
+        PRODUCT_BUNDLE_IDENTIFIER: dev.fourmoda.photosheet
         TARGETED_DEVICE_FAMILY: "1"
   PhotoSheetTests:
     type: bundle.unit-test

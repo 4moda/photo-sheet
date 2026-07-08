@@ -16,8 +16,18 @@ jobs:
       - name: Lint
         run: swiftlint lint --reporter github-actions-logging
 
+  # コア層 (Domain + 永続化) の高速テスト。ubuntu は課金倍率 1x で macOS (10x) より安い。
+  core-tests:
+    name: Core Tests (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.0
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run core tests
+        run: swift test
+
   build-and-test:
-    name: Build & Test
+    name: Build & Test (macOS)
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -31,4 +41,8 @@ jobs:
             -project PhotoSheet.xcodeproj \
             -scheme PhotoSheet \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -enableCodeCoverage YES \
+            -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO
+      - name: Coverage gate (Domain >= 80%)
+        run: bash scripts/coverage-gate.sh TestResults.xcresult 80

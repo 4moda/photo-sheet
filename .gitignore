@@ -9,6 +9,8 @@ build/
 *.ipa
 *.dSYM.zip
 .swiftpm/
+.build/
+TestResults.xcresult/
 
 # macOS
 .DS_Store
