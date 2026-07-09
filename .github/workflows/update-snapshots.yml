@@ -45,6 +45,12 @@ jobs:
           echo "Selected simulator: $UDID"
 
       - name: Record snapshots
+        # TEST_RUNNER_RECORD_SNAPSHOTS は「環境変数」として渡す必要がある。
+        # xcodebuild は TEST_RUNNER_ プレフィックス付きの環境変数だけを、
+        # プレフィックスを外してテストランナーへ伝播する（→ テスト側 RECORD_SNAPSHOTS=true）。
+        # ビルド設定引数として渡すと伝播されず record モードが起動しない（旧バグ）。
+        env:
+          TEST_RUNNER_RECORD_SNAPSHOTS: "true"
         run: |
           xcodebuild test \
             -project PhotoSheet.xcodeproj \
@@ -52,7 +58,6 @@ jobs:
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -only-testing PhotoSheetSnapshotTests \
             CODE_SIGNING_ALLOWED=NO \
-            TEST_RUNNER_RECORD_SNAPSHOTS=true \
           || true  # record モードは必ず失敗するため終了コードを無視する
 
       - name: Upload recorded snapshots

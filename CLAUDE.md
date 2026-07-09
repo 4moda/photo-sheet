@@ -57,6 +57,8 @@ scripts/test-core.sh          # コアのテストが数秒で回る。コア変
 
 `PhotoSheetSnapshotTests/SheetCanvasViewSnapshotTests.swift` が `SheetCanvasView` の描画を画像として記録し、CI で自動比較する。
 
+**規約**: スナップショットテストは**可変な `LayoutConfig.default` にレイアウトを依存させない**。テストで検証したい設定（用紙・列数など）は明示的に固定する（`baseLayout()` は用紙を `.flexible` に固定している）。デフォルト値を変えただけで全参照画像が壊れるのを防ぐため。用紙固定モードの検証は専用テスト（`testGrid_fixedPaper_8x10`）で行う。
+
 ### 参照画像を初回生成 / 更新する手順
 
 1. **GitHub Actions > Update Snapshots > Run workflow** を手動実行（`workflow_dispatch`）
