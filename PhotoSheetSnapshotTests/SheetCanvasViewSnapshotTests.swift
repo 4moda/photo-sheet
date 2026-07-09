@@ -37,6 +37,17 @@ final class SheetCanvasViewSnapshotTests: XCTestCase {
         }
     }
 
+    /// スナップショットの土台となるレイアウト。
+    /// これらのテストは「キャンバスのレイアウト構造」の回帰検知が目的なので、
+    /// 可変な `LayoutConfig.default`（用紙デフォルトは変わりうる）に追従させず、
+    /// 用紙は常に `.flexible`（自然な高さ）に固定して描く。
+    /// 用紙固定モードの挙動は `testGrid_fixedPaper_8x10` が個別に検証する。
+    private func baseLayout() -> LayoutConfig {
+        var layout = LayoutConfig.default
+        layout.paperFormat = .flexible
+        return layout
+    }
+
     /// ビューをスナップショットと比較（またはレコード）する。
     /// sizeThatFits を使うことで SheetCanvasView の frame に合わせた自然なサイズで描画する。
     private func assertCanvas<V: View>(
@@ -60,7 +71,7 @@ final class SheetCanvasViewSnapshotTests: XCTestCase {
 
     /// グリッド 6 列・3:2 固定比率（デフォルト設定）
     func testGrid_6columns_film3x2() {
-        var layout = LayoutConfig.default
+        var layout = baseLayout()
         layout.columns = 6
         layout.cellAspect = .film3x2
         layout.showFilename = false
@@ -73,7 +84,7 @@ final class SheetCanvasViewSnapshotTests: XCTestCase {
 
     /// グリッド 3 列・元の比率・ファイル名ラベルあり
     func testGrid_3columns_original_withFilename() {
-        var layout = LayoutConfig.default
+        var layout = baseLayout()
         layout.columns = 3
         layout.cellAspect = .original
         layout.showFilename = true
@@ -86,7 +97,7 @@ final class SheetCanvasViewSnapshotTests: XCTestCase {
 
     /// グリッド 4 列・正方形比率
     func testGrid_4columns_square() {
-        var layout = LayoutConfig.default
+        var layout = baseLayout()
         layout.columns = 4
         layout.cellAspect = .square
         layout.showFilename = false
@@ -101,7 +112,7 @@ final class SheetCanvasViewSnapshotTests: XCTestCase {
 
     /// フィルムストリップ 35mm（横コマ・3:2）
     func testFilmStrip_35mm() {
-        var layout = LayoutConfig.default
+        var layout = baseLayout()
         layout.style = .filmStrip
         layout.filmFormat = .fullFrame
         layout.columns = 6
@@ -115,7 +126,7 @@ final class SheetCanvasViewSnapshotTests: XCTestCase {
 
     /// フィルムストリップ ハーフフレーム（縦コマ・3:4）
     func testFilmStrip_halfFrame() {
-        var layout = LayoutConfig.default
+        var layout = baseLayout()
         layout.style = .filmStrip
         layout.filmFormat = .halfFrame
         layout.columns = 6
@@ -131,7 +142,7 @@ final class SheetCanvasViewSnapshotTests: XCTestCase {
 
     /// グリッドにタイトル・キャプションのヘッダーを追加
     func testGrid_withHeader() {
-        var layout = LayoutConfig.default
+        var layout = baseLayout()
         layout.columns = 6
         var sheet = Sheet(photos: makePhotos(12), layout: layout)
         sheet.title = "ROLL 01"
@@ -146,7 +157,7 @@ final class SheetCanvasViewSnapshotTests: XCTestCase {
 
     /// 用紙固定（8×10）で内容が相似形に収まるか
     func testGrid_fixedPaper_8x10() {
-        var layout = LayoutConfig.default
+        var layout = baseLayout()
         layout.columns = 6
         layout.paperFormat = .print8x10
         let sheet = Sheet(photos: makePhotos(12), layout: layout)
