@@ -1,14 +1,29 @@
 name: CI
 
+# ドキュメントのみの変更では CI を回さない（macOS ランナーは課金倍率 10x）。
+# Appetize Deploy / Device Build は本ワークフローの成功を workflow_run で待つ
+# ゲート構成のため、docs のみの push では macOS ジョブが一切走らない。
 on:
   push:
     branches: [main]
+    paths-ignore: ['**/*.md', 'docs/**', '.claude/**']
   pull_request:
+    paths-ignore: ['**/*.md', 'docs/**', '.claude/**']
+
+# 最小権限（コードの読み取りのみ。artifact アップロードはランタイムトークンで動作する）
+permissions:
+  contents: read
+
+# 連続 push 時は古い run をキャンセルして分数を節約する
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:
     name: SwiftLint
     runs-on: macos-15
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Install SwiftLint
@@ -20,6 +35,7 @@ jobs:
   core-tests:
     name: Core Tests (Linux)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     container: swift:6.0
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +45,7 @@ jobs:
   build-and-test:
     name: Build & Test (macOS)
     runs-on: macos-15
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
@@ -56,12 +73,22 @@ jobs:
           ")
           echo "udid=$UDID" >> $GITHUB_OUTPUT
           echo "Selected simulator: $UDID"
-      - name: Build and test
+      # コンパイルエラーを最短で検知するため、テスト実行とは分けて先にビルドする
+      - name: Build for testing
         run: |
-          xcodebuild test \
+          xcodebuild build-for-testing \
             -project PhotoSheet.xcodeproj \
             -scheme PhotoSheet \
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Run tests
+        run: |
+          xcodebuild test-without-building \
+            -project PhotoSheet.xcodeproj \
+            -scheme PhotoSheet \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath DerivedData \
             -enableCodeCoverage YES \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO

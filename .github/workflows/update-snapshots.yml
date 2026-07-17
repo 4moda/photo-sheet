@@ -9,10 +9,14 @@ name: Update Snapshots
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   record:
     name: Record Snapshots
     runs-on: macos-15
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 

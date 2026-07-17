@@ -2,17 +2,34 @@ name: Device Build (unsigned IPA)
 
 # 実機確認用の未署名 IPA を生成する。
 # ダウンロードした IPA を Sideloadly / AltStore で無料 Apple ID 署名して実機にインストールする。
+# CI が main で成功した後にだけ走る（テストが赤いビルドを配布しない・分数節約）。手動実行も可能。
 on:
   workflow_dispatch:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: device-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-ipa:
     name: Build unsigned IPA
     runs-on: macos-15
+    timeout-minutes: 40
+    # 手動実行、または CI が成功したときのみ実行（失敗/キャンセル時はスキップ）
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
+      # workflow_run 起動時は既定でデフォルトブランチ HEAD を取るため、
+      # CI が回した実際のコミットを明示的にチェックアウトする。
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
       - name: Install XcodeGen
         run: |
