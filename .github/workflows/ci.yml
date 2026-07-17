@@ -73,7 +73,9 @@ jobs:
           ")
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           echo "Selected simulator: $UDID"
-      # コンパイルエラーを最短で検知するため、テスト実行とは分けて先にビルドする
+      # コンパイルエラーを最短で検知するため、テスト実行とは分けて先にビルドする。
+      # カバレッジ計測はビルド時に有効化しないと xctestrun に反映されない
+      # （test-without-building 側だけに付けても収集されず、カバレッジゲートが落ちる）
       - name: Build for testing
         run: |
           xcodebuild build-for-testing \
@@ -81,6 +83,7 @@ jobs:
             -scheme PhotoSheet \
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath DerivedData \
+            -enableCodeCoverage YES \
             CODE_SIGNING_ALLOWED=NO
       - name: Run tests
         run: |
