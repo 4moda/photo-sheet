@@ -136,12 +136,17 @@ final class ScreenshotSmokeTests: XCTestCase {
         sleep(1)
         snapshot("S02-F11-film-style")
 
-        // 120（6×6）: パーフォレーションなしのストリップ
-        if app.buttons["6×6"].waitForExistence(timeout: 3) {
-            app.buttons["6×6"].tap()
+        // 120（6×6）: パーフォレーションなしのストリップ。
+        // フィルム選択セグメントは見た目パネルの ZStack（フィルム/スリーブ両バリアント）に
+        // 同名で存在し曖昧になるため、firstMatch + 座標タップで可視側（ヒットテスト有効側）を押す
+        let mediumFormat = app.buttons["6×6"].firstMatch
+        if mediumFormat.waitForExistence(timeout: 3) {
+            mediumFormat.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             sleep(1)
             snapshot("S02-F13-film-120-square")
-            app.buttons["35mm"].tap()
+            app.buttons["35mm"].firstMatch
+                .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            sleep(1)
         }
 
         app.buttons["スリーブ"].tap()
