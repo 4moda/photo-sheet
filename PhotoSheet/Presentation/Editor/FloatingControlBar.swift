@@ -105,8 +105,11 @@ struct FloatingControlBar: View {
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
     }
+}
 
-    // MARK: - Panels
+// MARK: - Panels
+// パネル群は extension に分離（型本体の肥大化を避ける。SwiftLint type_body_length 対応）
+extension FloatingControlBar {
 
     private func toolPanel(_ tool: Tool) -> some View {
         VStack(alignment: .leading, spacing: 12) {
