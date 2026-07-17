@@ -78,10 +78,10 @@ jobs:
           else
             URL="https://api.appetize.io/v1/apps"
           fi
-          RESPONSE=$(curl -sS -f -u "$APPETIZE_API_TOKEN:" "$URL" \
+          # レスポンスには publicKey が含まれるため出力しない（Secrets 保護）
+          curl -sS -f -u "$APPETIZE_API_TOKEN:" "$URL" \
             -F "file=@PhotoSheet-simulator.zip" \
-            -F "platform=ios")
-          PUBLIC_KEY=$(echo "$RESPONSE" | jq -r '.publicKey')
+            -F "platform=ios" > /dev/null
           {
             echo "## Appetize デプロイ完了 🎉"
             echo ""

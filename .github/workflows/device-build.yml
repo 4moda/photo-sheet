@@ -56,7 +56,7 @@ jobs:
           mkdir -p Payload
           cp -R "DerivedData/Build/Products/Release-iphoneos/PhotoSheet.app" Payload/
           zip -qry "PhotoSheet-unsigned-${{ github.run_number }}.ipa" Payload
-          ls -lh *.ipa
+          ls -lh ./*.ipa
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4

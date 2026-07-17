@@ -71,7 +71,7 @@ jobs:
           else:
               sys.exit(1)
           ")
-          echo "udid=$UDID" >> $GITHUB_OUTPUT
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           echo "Selected simulator: $UDID"
       # コンパイルエラーを最短で検知するため、テスト実行とは分けて先にビルドする
       - name: Build for testing
