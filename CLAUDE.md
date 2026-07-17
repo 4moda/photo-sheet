@@ -24,7 +24,8 @@ scripts/test-core.sh          # コアのテストが数秒で回る。コア変
 1. コアに触れたら `scripts/test-core.sh`（編集時フックも自動でコンパイルチェックする）
 2. **push 前の必須条件**: ① コアテストがグリーン ② UI 層（UIKit/SwiftUI 依存部分）の差分は型・API の自己レビューを済ませる（macOS CI の 1 往復 ≈ 10 分＋課金を無駄にしない）
 3. コミット・push → ワークフローが走る:
-   - **CI**: SwiftLint / Linux コアテスト / macOS ビルド+テスト+Domain カバレッジゲート(80%)。**docs/Markdown のみの変更では走らない**（paths-ignore）
+   - **CI**: SwiftLint / Linux コアテスト / macOS ビルド+テスト+Domain カバレッジゲート(80%) / **スクショ撮影**（fastlane snapshot、`docs/screens.md` の画面ID・機能IDと 1:1）。**docs/Markdown のみの変更では走らない**（paths-ignore）
+   - スクショの閲覧: 人間は Cloudflare Pages（main は `main-latest.photosheet-screenshots.pages.dev`、PR は `pr-<番号>.…` + 自動コメント）、AI は `gh run download -n screenshots`。画面を追加・変更したら `PhotoSheetUITests/ScreenshotSmokeTests.swift` と `docs/screens.md` も更新する
    - **Appetize Deploy** / **Device Build**: CI が main で**成功した後にだけ** workflow_run で起動（赤いビルドを配布しないゲート。手動実行も可能）
    - **actionlint**: `.github/workflows/` を変更したときだけワークフロー定義を静的検査
 4. CI の監視: `gh run list --limit 3` / `gh run watch <id> --exit-status`

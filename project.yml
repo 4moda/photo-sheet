@@ -53,6 +53,17 @@ targets:
     dependencies:
       - target: PhotoSheet
       - package: SnapshotTesting
+  # スクショ撮影用 UI テスト（fastlane snapshot が駆動する）。
+  # fastlane/tools はビルド対象外（Xcode ターゲットには .swift のみ含める）。
+  PhotoSheetUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: PhotoSheetUITests
+        includes:
+          - "*.swift"
+    dependencies:
+      - target: PhotoSheet
 schemes:
   PhotoSheet:
     build:
@@ -62,3 +73,4 @@ schemes:
       targets:
         - PhotoSheetTests
         - PhotoSheetSnapshotTests
+        - PhotoSheetUITests

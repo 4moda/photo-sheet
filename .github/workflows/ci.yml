@@ -85,6 +85,7 @@ jobs:
             -derivedDataPath DerivedData \
             -enableCodeCoverage YES \
             CODE_SIGNING_ALLOWED=NO
+      # UIテスト（スクショ撮影用）は screenshots ジョブが fastlane snapshot で実行する
       - name: Run tests
         run: |
           xcodebuild test-without-building \
@@ -92,6 +93,7 @@ jobs:
             -scheme PhotoSheet \
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath DerivedData \
+            -skip-testing:PhotoSheetUITests \
             -enableCodeCoverage YES \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO
@@ -104,3 +106,192 @@ jobs:
           if-no-files-found: ignore
       - name: Coverage gate (Domain >= 80%)
         run: bash scripts/coverage-gate.sh TestResults.xcresult 80
+      # UITest のビルド成果物（.app/.xctest/.xctestrun）は screenshots ジョブで
+      # test-without-building として再利用する。tar は zip 系 artifact 実装より
+      # 実行ビットやシンボリックリンクの保存が確実なため自前でアーカイブする。
+      # 容量の大きい Build/Intermediates.noindex は含めない（photo-layout と同じ構成）。
+      - name: Package built test products (for screenshots)
+        if: always()
+        run: |
+          mkdir -p artifact
+          tar -C DerivedData/Build/Products -czf artifact/build-products.tar.gz .
+      - name: Upload built test products
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-products
+          path: artifact/build-products.tar.gz
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # 画面・機能・操作ごとのスクリーンショットを fastlane snapshot で撮影する。
+  # build-and-test のビルド成果物を artifact 経由で再利用（再コンパイルなし）。
+  # 機種を増やすときは photo-layout と同様に matrix + SNAPSHOT_DEVICES で並列化する。
+  screenshots:
+    name: Screenshots (iPhone 16)
+    needs: build-and-test
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      SNAPSHOT_DEVICES: iPhone 16
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: |
+          brew untap aws/tap 2>/dev/null || true
+          brew install xcodegen
+
+      # .xcodeproj は都度生成（コンパイルは発生しない。ビルド成果物のみ使い回す）
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Download built test products
+        uses: actions/download-artifact@v4
+        with:
+          name: build-products
+          path: artifact
+
+      - name: Extract built test products
+        run: |
+          mkdir -p DerivedData/Build/Products
+          tar -C DerivedData/Build/Products -xzf artifact/build-products.tar.gz
+
+      - name: Capture screenshots (fastlane snapshot)
+        working-directory: PhotoSheetUITests
+        env:
+          FASTLANE_SKIP_UPDATE_CHECK: "1"
+          FASTLANE_HIDE_CHANGELOG: "1"
+        run: fastlane snapshot
+
+      - name: Upload screenshots (iPhone 16)
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-iphone-16
+          path: PhotoSheetUITests/fastlane/screenshots
+          if-no-files-found: warn
+          retention-days: 7
+
+  # 撮影結果をマージして絞り込み可能な index.html を生成し、Cloudflare Pages へデプロイする。
+  # Cloudflare の Pages プロジェクト（photosheet-screenshots）・Zero Trust Access・
+  # Secrets（CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID）は人間が事前に用意する前提。
+  # Secrets 未設定の間は静かにスキップする（photo-layout と同じ設計）。
+  screenshots-index:
+    name: Merge screenshots & deploy preview
+    needs: screenshots
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all screenshots
+        uses: actions/download-artifact@v4
+        with:
+          pattern: screenshots-*
+          path: screenshots
+          merge-multiple: true
+
+      - name: Build filterable screenshot index
+        run: python3 PhotoSheetUITests/tools/build_screenshot_index.py screenshots
+
+      # 撮影ジョブが空振りした場合は screenshots が無い。存在チェックを挟まないと
+      # wrangler が存在しないディレクトリを scandir して crash する
+      - name: Check screenshots exist
+        id: screenshots_check
+        run: |
+          if [ -d screenshots ] && find screenshots -name '*.png' -print -quit | grep -q .; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::screenshots ディレクトリが空か存在しません。Cloudflare Pages デプロイをスキップします。"
+          fi
+
+      - name: Check Cloudflare secrets
+        id: cf_check
+        env:
+          CF_TOKEN_SET: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+          CF_ACCOUNT_SET: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+        run: |
+          if [ "$CF_TOKEN_SET" = "true" ] && [ "$CF_ACCOUNT_SET" = "true" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID が未設定のため、スクショの Cloudflare Pages デプロイをスキップします。"
+          fi
+
+      # PR ごとのプレビュー: https://pr-<番号>.photosheet-screenshots.pages.dev（push 毎に上書き）
+      - name: Deploy screenshots to Cloudflare Pages (PR preview)
+        id: deploy_pr
+        if: |
+          github.event_name == 'pull_request' &&
+          steps.cf_check.outputs.configured == 'true' &&
+          steps.screenshots_check.outputs.present == 'true'
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: photosheet-screenshots
+          directory: screenshots
+          branch: pr-${{ github.event.pull_request.number }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      # main の恒久プレビュー。branch に "main" は使わない: production branch と一致すると
+      # Zero Trust の *.pages.dev ワイルドカードが保護しない apex ドメインへ公開されてしまう
+      - name: Deploy screenshots to Cloudflare Pages (main preview)
+        id: deploy_push
+        if: |
+          github.event_name == 'push' &&
+          steps.cf_check.outputs.configured == 'true' &&
+          steps.screenshots_check.outputs.present == 'true'
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: photosheet-screenshots
+          directory: screenshots
+          branch: main-latest
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      # PR には安定 URL をコメントする（再 push ではマーカーで既存コメントを上書き）。
+      # URL は action の outputs.alias を使わず自前で組み立てる（direct upload では
+      # alias がハッシュ URL を返すことがあるため。photo-layout での実測に倣う）
+      - name: Comment preview URL on PR
+        if: steps.deploy_pr.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PREVIEW_URL: https://pr-${{ github.event.pull_request.number }}.photosheet-screenshots.pages.dev
+        run: |
+          set -euo pipefail
+          marker="<!-- screenshots-preview -->"
+          body="$marker
+          ## 📸 スクショプレビュー
+
+          $PREVIEW_URL
+
+          画面ID・機能ID・言語・端末で絞り込めます。このPRへの以降のpushでも同じURLが最新を指します。"
+
+          existing_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq "[.[] | select(.body | startswith(\"$marker\"))][0].id // empty")
+
+          if [ -n "$existing_id" ]; then
+            gh api "repos/$REPO/issues/comments/$existing_id" -X PATCH -f body="$body" >/dev/null
+          else
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" -X POST -f body="$body" >/dev/null
+          fi
+
+      # AI エージェント（Claude Code 等）が gh run download で直接参照するための経路。
+      # Cloudflare Pages の成否とは無関係に、screenshots さえあれば常にアップロードする
+      - name: Upload merged screenshots (for AI reference)
+        if: steps.screenshots_check.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots
+          if-no-files-found: ignore

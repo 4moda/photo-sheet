@@ -1,0 +1,42 @@
+# fastlane snapshot 設定（各操作を自動撮影し screenshots.html を生成）
+# CI(macOS)で、このディレクトリ（PhotoSheetUITests）をCWDにして
+# `fastlane snapshot` を実行する。ビルドは build-for-testing を再利用。
+# パスはCWD（＝UITestディレクトリ）基準。xcodeproj/DerivedData はリポジトリ直下(../)。
+
+project("../PhotoSheet.xcodeproj")
+
+# まずは iPhone 16 の 1 機種から（macos-15 イメージのシミュレータ）。
+# 機種を増やすときは photo-layout と同様に SNAPSHOT_DEVICES（カンマ区切り）で
+# CI の matrix ジョブごとに絞り込む。未設定時（ローカル実行）は全機種を逐次撮影。
+default_devices = ["iPhone 16"]
+devices(ENV["SNAPSHOT_DEVICES"]&.split(",") || default_devices)
+languages(["ja-JP"])
+
+scheme("PhotoSheet")
+
+# build-for-testing の成果物（リポジトリ直下の DerivedData）を再利用（再ビルドしない）
+derived_data_path("../DerivedData")
+test_without_building(true)
+
+# UIテストのみ撮影対象（ユニットテスト・スナップショットテストは CI の別ステップで実行）
+def env_list(key)
+  value = ENV[key]
+  return nil if value.nil? || value.strip.empty?
+  value.split(",")
+end
+
+only_testing(env_list("SNAPSHOT_ONLY_TESTING") || ["PhotoSheetUITests"])
+if (skip = env_list("SNAPSHOT_SKIP_TESTING"))
+  skip_testing(skip)
+end
+
+# シミュレータの外観。ダーク軸を足すときは photo-layout と同じく
+# SNAPSHOT_DARK_MODE を matrix から渡す（テストプロセス内の切替は
+# test_without_building 経由では効かない）。
+dark_mode(ENV["SNAPSHOT_DARK_MODE"] == "true")
+
+# 出力はこのツール群と同じ場所（PhotoSheetUITests/fastlane/screenshots）
+output_directory("./fastlane/screenshots")
+clear_previous_screenshots(true)
+skip_open_summary(true)
+concurrent_simulators(false)

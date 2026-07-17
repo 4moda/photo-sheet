@@ -17,7 +17,9 @@ gh run view <run-id> --log-failed | grep -E "error:" | head -30
 
 ## ワークフロー
 
-- `CI`: SwiftLint / Linux コアテスト / macOS Build & Test / Domain coverage gate。docs・Markdown のみの変更ではスキップ（paths-ignore）
+- `CI`: SwiftLint / Linux コアテスト / macOS Build & Test / Domain coverage gate / スクショ撮影（fastlane snapshot）+ Cloudflare Pages デプロイ。docs・Markdown のみの変更ではスキップ（paths-ignore）
+  - スクショの見方: `docs/screens.md`（画面ID・機能ID）。人間は `https://main-latest.photosheet-screenshots.pages.dev`、AI は `gh run download -n screenshots`
+  - 必要な Secrets: `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`（Pages プロジェクト `photosheet-screenshots` と Zero Trust Access は事前に人間が作成。未設定の間はデプロイを静かにスキップ）
 - `Appetize Deploy`: シミュレータ向けビルドを Appetize にアップロード。**CI が main で成功した後にだけ** workflow_run で起動（手動実行も可）
 - `Device Build (unsigned IPA)`: 未署名 IPA を Artifact 出力。同じく CI 成功後にだけ起動（手動実行も可）
 - `actionlint`: `.github/workflows/` 変更時のみ、ワークフロー定義を静的検査（shellcheck 込み）
