@@ -223,16 +223,21 @@ extension FloatingControlBar {
 
         // スタイル切替でパネルの高さが変わってバーが上下しないよう、
         // 全バリアントを重ねて常に最大高さを確保する
+        // accessibilityHidden: 非表示バリアントを VoiceOver / XCUITest から隠す
+        // （opacity 0 でもアクセシビリティツリーには残り、同名ボタンが重複するため）
         ZStack(alignment: .topLeading) {
             gridOnlyOptions
                 .opacity(currentStyle == .grid ? 1 : 0)
                 .allowsHitTesting(currentStyle == .grid)
+                .accessibilityHidden(currentStyle != .grid)
             filmOnlyOptions
                 .opacity(currentStyle == .filmStrip ? 1 : 0)
                 .allowsHitTesting(currentStyle == .filmStrip)
+                .accessibilityHidden(currentStyle != .filmStrip)
             sleeveOnlyOptions
                 .opacity(currentStyle == .negativeSleeve ? 1 : 0)
                 .allowsHitTesting(currentStyle == .negativeSleeve)
+                .accessibilityHidden(currentStyle != .negativeSleeve)
         }
 
         // 余白・間隔・背景色（旧 用紙パネルからここへ統合）
@@ -387,9 +392,11 @@ extension FloatingControlBar {
             imageExportOptions
                 .opacity(exportFormat == .image ? 1 : 0)
                 .allowsHitTesting(exportFormat == .image)
+                .accessibilityHidden(exportFormat != .image)
             videoExportOptions
                 .opacity(exportFormat == .video ? 1 : 0)
                 .allowsHitTesting(exportFormat == .video)
+                .accessibilityHidden(exportFormat != .video)
         }
 
         // 書き出しボタン

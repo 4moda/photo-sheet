@@ -85,10 +85,16 @@ final class ScreenshotSmokeTests: XCTestCase {
 
     @MainActor
     private func capturePhotoMenu(_ app: XCUIApplication) {
-        // キャンバス中央付近の写真をタップ（confirmationDialog が開く）
+        // キャンバスの写真をタップ（confirmationDialog が開く）。
+        // 画像要素が取れればそれを、だめなら座標でタップする
         let canvas = app.scrollViews.firstMatch
         guard canvas.waitForExistence(timeout: 5) else { return }
-        canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.3)).tap()
+        let photo = canvas.images.firstMatch
+        if photo.waitForExistence(timeout: 3) {
+            photo.tap()
+        } else {
+            canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.3)).tap()
+        }
         if app.buttons["削除"].waitForExistence(timeout: 3) {
             sleep(1)
             snapshot("S02-F03-photo-menu")

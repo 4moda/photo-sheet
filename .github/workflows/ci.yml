@@ -164,6 +164,18 @@ jobs:
           FASTLANE_HIDE_CHANGELOG: "1"
         run: fastlane snapshot
 
+      # fastlane snapshot は UI テストが失敗しても exit 0 で終わることがある。
+      # 撮れたはずの枚数を検証し、静かに欠けたまま緑になるのを防ぐ
+      # （snapshot() 呼び出しは現在 16 箇所。ガードによる 1 枚の欠落までは許容）。
+      - name: Verify screenshot count
+        run: |
+          count=$(find PhotoSheetUITests/fastlane/screenshots -name '*.png' | wc -l | tr -d ' ')
+          echo "captured: $count"
+          if [ "$count" -lt 15 ]; then
+            echo "::error::スクリーンショットが想定枚数（16、許容下限 15）に足りません: ${count} 枚。UI テストの失敗を確認してください。"
+            exit 1
+          fi
+
       - name: Upload screenshots (iPhone 16)
         uses: actions/upload-artifact@v4
         with:
