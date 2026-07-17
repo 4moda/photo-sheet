@@ -70,7 +70,7 @@ struct SheetCanvasView: View {
                 .font(.system(size: width * 0.024, weight: .semibold, design: .monospaced))
                 .tracking(width * 0.004)
             Spacer(minLength: 0)
-            Text(sheet.caption)
+            Text(sheet.displayCaption)
                 .font(.system(size: width * 0.019, design: .monospaced))
                 .opacity(0.65)
         }
@@ -128,8 +128,9 @@ struct SheetCanvasView: View {
                 frameWidth: frameWidth,
                 contentWidth: contentWidth,
                 separator: separator,
-                frameAspect: layout.filmFormat.frameAspect,
+                format: layout.filmFormat,
                 edgeText: layout.filmEdgeText,
+                adjustments: layout.adjustments,
                 imageCache: imageCache,
                 onTapPhoto: onTapPhoto,
                 onMovePhoto: onMovePhoto,
@@ -145,7 +146,7 @@ struct SheetCanvasView: View {
 
     private func photoView(_ photo: SheetPhoto, cellWidth: Double, height: Double) -> some View {
         Group {
-            if let image = imageCache.image(for: photo) {
+            if let image = imageCache.image(for: photo, adjustments: layout.adjustments) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
@@ -214,8 +215,9 @@ private struct FilmStripRow: View {
     let frameWidth: Double
     let contentWidth: Double
     let separator: Double
-    let frameAspect: Double
+    let format: FilmFormat
     let edgeText: String
+    let adjustments: SheetAdjustments
     let imageCache: PhotoImageCache
     let onTapPhoto: ((UUID) -> Void)?
     let onMovePhoto: ((UUID, UUID) -> Void)?
@@ -225,6 +227,7 @@ private struct FilmStripRow: View {
     /// フィルムベースの黒（純黒より僅かに浮かせて「焼かれた黒」に寄せる）
     private static let filmBlack = Color(red: 0.043, green: 0.043, blue: 0.05)
 
+    private var frameAspect: Double { format.frameAspect }
     private var frameHeight: Double { frameWidth / frameAspect }
     private var edgeBandHeight: Double { frameWidth * SheetLayoutMath.filmEdgeTextRatio }
     private var sprocketBandHeight: Double { frameWidth * SheetLayoutMath.filmSprocketRatio }
@@ -232,9 +235,14 @@ private struct FilmStripRow: View {
     var body: some View {
         VStack(spacing: 0) {
             edgeTextLine
-            sprocketRow
+            // 120 フィルムにはパーフォレーションがない
+            if format.hasSprocketHoles {
+                sprocketRow
+            }
             photoRow
-            sprocketRow
+            if format.hasSprocketHoles {
+                sprocketRow
+            }
             numberLine
         }
         .frame(width: contentWidth)
@@ -275,7 +283,7 @@ private struct FilmStripRow: View {
                         photoAspect: photo.aspectRatio,
                         frameAspect: frameAspect
                     )
-                    if let image = imageCache.image(for: photo, rotatedQuarterTurn: rotate) {
+                    if let image = imageCache.image(for: photo, adjustments: adjustments, rotatedQuarterTurn: rotate) {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
@@ -300,8 +308,11 @@ private struct FilmStripRow: View {
                 HStack {
                     Text("\(number)")
                     Spacer(minLength: 0)
-                    Text("\(number)A")
-                    Spacer(minLength: 0)
+                    // 「8 / 8A」の併記は 35mm の縁刻印。120 は番号のみ
+                    if format.usesSecondaryFrameNumber {
+                        Text("\(number)A")
+                        Spacer(minLength: 0)
+                    }
                 }
                 .font(.system(size: frameWidth * 0.06, weight: .medium, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.7))

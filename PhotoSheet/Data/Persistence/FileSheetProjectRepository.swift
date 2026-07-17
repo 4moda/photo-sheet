@@ -25,12 +25,16 @@ final class FileSheetProjectRepository: SheetProjectRepository {
         let id: UUID
         let fileName: String
         let aspectRatio: Double
+        // optional: 旧 manifest にキーが無くても decodeIfPresent で nil になる
+        let captureDate: Date?
     }
 
     private struct Manifest: Codable {
         let id: UUID
         var title: String
         var caption: String
+        // optional: 旧 manifest との後方互換（nil = false）
+        var autoDateCaption: Bool?
         var createdAt: Date
         var updatedAt: Date
         var layout: LayoutConfig
@@ -92,11 +96,18 @@ final class FileSheetProjectRepository: SheetProjectRepository {
         let photos: [SheetPhoto] = manifest.photos.compactMap { meta in
             let url = photoDir.appendingPathComponent(meta.id.uuidString)
             guard let imageData = try? Data(contentsOf: url) else { return nil }
-            return SheetPhoto(id: meta.id, fileName: meta.fileName, imageData: imageData, aspectRatio: meta.aspectRatio)
+            return SheetPhoto(
+                id: meta.id,
+                fileName: meta.fileName,
+                imageData: imageData,
+                aspectRatio: meta.aspectRatio,
+                captureDate: meta.captureDate
+            )
         }
         var sheet = Sheet(photos: photos, layout: manifest.layout)
         sheet.title = manifest.title
         sheet.caption = manifest.caption
+        sheet.autoDateCaption = manifest.autoDateCaption ?? false
         return SheetProject(id: manifest.id, createdAt: manifest.createdAt, updatedAt: manifest.updatedAt, sheet: sheet)
     }
 
@@ -124,11 +135,12 @@ final class FileSheetProjectRepository: SheetProjectRepository {
             id: project.id,
             title: project.sheet.title,
             caption: project.sheet.caption,
+            autoDateCaption: project.sheet.autoDateCaption,
             createdAt: project.createdAt,
             updatedAt: project.updatedAt,
             layout: project.sheet.layout,
             photos: project.sheet.photos.map {
-                PhotoManifest(id: $0.id, fileName: $0.fileName, aspectRatio: $0.aspectRatio)
+                PhotoManifest(id: $0.id, fileName: $0.fileName, aspectRatio: $0.aspectRatio, captureDate: $0.captureDate)
             }
         )
         try encoder.encode(manifest).write(to: manifestURL(project.id))

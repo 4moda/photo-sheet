@@ -21,7 +21,12 @@ struct DefaultPhotoSourceRepository: PhotoSourceRepository {
             guard let aspect = ImageDataDecoder.aspectRatio(of: item.data) else { return nil }
             // ファイル名がない場合はベタ焼きのコマ番号風に連番を振る
             let name = item.suggestedName ?? String(format: "%02d", index + 1)
-            return SheetPhoto(fileName: name, imageData: item.data, aspectRatio: aspect)
+            return SheetPhoto(
+                fileName: name,
+                imageData: item.data,
+                aspectRatio: aspect,
+                captureDate: ImageDataDecoder.captureDate(of: item.data)
+            )
         }
     }
 
@@ -72,7 +77,12 @@ struct DefaultPhotoSourceRepository: PhotoSourceRepository {
                   let aspect = ImageDataDecoder.aspectRatio(of: data) else {
                 continue
             }
-            photos.append(SheetPhoto(fileName: fileURL.lastPathComponent, imageData: data, aspectRatio: aspect))
+            photos.append(SheetPhoto(
+                fileName: fileURL.lastPathComponent,
+                imageData: data,
+                aspectRatio: aspect,
+                captureDate: ImageDataDecoder.captureDate(of: data)
+            ))
         }
         return photos
     }

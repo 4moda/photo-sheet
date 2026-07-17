@@ -42,6 +42,8 @@ extension FilmFormat {
         switch self {
         case .fullFrame: "35mm"
         case .halfFrame: "ハーフ"
+        case .square66: "6×6"
+        case .wide67: "6×7"
         }
     }
 }

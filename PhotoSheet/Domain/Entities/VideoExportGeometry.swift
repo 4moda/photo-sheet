@@ -63,7 +63,7 @@ enum VideoExportGeometry {
                 let fw = CGFloat(SheetLayoutMath.filmFrameWidth(layout, width: w))
                 h = CGFloat(SheetLayoutMath.filmStripHeight(
                     frameWidth: Double(fw),
-                    frameAspect: layout.filmFormat.frameAspect
+                    format: layout.filmFormat
                 ))
             }
             rowTops.append(y)

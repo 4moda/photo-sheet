@@ -70,7 +70,7 @@ final class SheetLayoutMathTests: XCTestCase {
         let width = 1000.0
 
         let frameWidth = SheetLayoutMath.filmFrameWidth(sheet.layout, width: width)
-        let stripHeight = SheetLayoutMath.filmStripHeight(frameWidth: frameWidth, frameAspect: 1.5)
+        let stripHeight = SheetLayoutMath.filmStripHeight(frameWidth: frameWidth, format: .fullFrame)
         let spacing = SheetLayoutMath.spacing(sheet.layout, width: width)
         let margin = SheetLayoutMath.margin(sheet.layout, width: width)
         let expected = margin * 2 + stripHeight * 2 + spacing
@@ -87,15 +87,32 @@ final class SheetLayoutMathTests: XCTestCase {
         // 35mm フルフレーム（3:2 横）
         let fullFrame = frameWidth * (0.10 * 2 + 0.08 * 2) + frameWidth / 1.5
         XCTAssertEqual(
-            SheetLayoutMath.filmStripHeight(frameWidth: frameWidth, frameAspect: 1.5),
+            SheetLayoutMath.filmStripHeight(frameWidth: frameWidth, format: .fullFrame),
             fullFrame,
             accuracy: 0.001
         )
         // ハーフフレーム（3:4 縦）はコマが縦長になるぶんストリップが高い
         let halfFrame = frameWidth * (0.10 * 2 + 0.08 * 2) + frameWidth / 0.75
         XCTAssertEqual(
-            SheetLayoutMath.filmStripHeight(frameWidth: frameWidth, frameAspect: 0.75),
+            SheetLayoutMath.filmStripHeight(frameWidth: frameWidth, format: .halfFrame),
             halfFrame,
+            accuracy: 0.001
+        )
+    }
+
+    func testFilmStripHeightFor120HasNoSprocketBands() {
+        let frameWidth = 150.0
+        // 120（6×6）はパーフォレーションがないためスプロケット帯 2 本ぶん低い
+        let square = frameWidth * (0.10 * 2) + frameWidth / 1.0
+        XCTAssertEqual(
+            SheetLayoutMath.filmStripHeight(frameWidth: frameWidth, format: .square66),
+            square,
+            accuracy: 0.001
+        )
+        let wide = frameWidth * (0.10 * 2) + frameWidth / 1.25
+        XCTAssertEqual(
+            SheetLayoutMath.filmStripHeight(frameWidth: frameWidth, format: .wide67),
+            wide,
             accuracy: 0.001
         )
     }
@@ -103,6 +120,15 @@ final class SheetLayoutMathTests: XCTestCase {
     func testFilmFormatAspects() {
         XCTAssertEqual(FilmFormat.fullFrame.frameAspect, 1.5, accuracy: 0.001)
         XCTAssertEqual(FilmFormat.halfFrame.frameAspect, 0.75, accuracy: 0.001)
+        XCTAssertEqual(FilmFormat.square66.frameAspect, 1.0, accuracy: 0.001)
+        XCTAssertEqual(FilmFormat.wide67.frameAspect, 1.25, accuracy: 0.001)
+    }
+
+    func testFilmFormatSprocketHoles() {
+        XCTAssertTrue(FilmFormat.fullFrame.hasSprocketHoles)
+        XCTAssertTrue(FilmFormat.halfFrame.hasSprocketHoles)
+        XCTAssertFalse(FilmFormat.square66.hasSprocketHoles)
+        XCTAssertFalse(FilmFormat.wide67.hasSprocketHoles)
     }
 
     func testFilmNeedsRotationWhenOrientationsMismatch() {
@@ -114,6 +140,9 @@ final class SheetLayoutMathTests: XCTestCase {
         XCTAssertTrue(SheetLayoutMath.filmNeedsRotation(photoAspect: 1.5, frameAspect: 0.75))
         // ハーフ縦コマ × 縦写真 → そのまま
         XCTAssertFalse(SheetLayoutMath.filmNeedsRotation(photoAspect: 0.75, frameAspect: 0.75))
+        // 正方形コマ（6×6）には向きがないため、どの写真でも回転しない
+        XCTAssertFalse(SheetLayoutMath.filmNeedsRotation(photoAspect: 0.75, frameAspect: 1.0))
+        XCTAssertFalse(SheetLayoutMath.filmNeedsRotation(photoAspect: 1.5, frameAspect: 1.0))
     }
 
     func testGridOriginalAspectUsesTallestPhotoInRow() {

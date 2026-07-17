@@ -156,6 +156,11 @@ final class SheetEditorViewModel {
         sheet.movePhoto(id: draggedId, toPositionOf: targetId)
     }
 
+    /// シート全体を撮影順（EXIF 撮影日時 → なければファイル名の自然順）に並べ替える
+    func sortPhotosByCaptureDate() {
+        sheet.sortPhotosByCaptureDate()
+    }
+
     func removeAllPhotos() {
         sheet.photos = []
         imageCache.removeAll()

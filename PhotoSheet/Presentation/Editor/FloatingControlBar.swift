@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 画面下部に浮かぶツールバー。アイコンをタップすると該当する設定パネルだけがバーの上に開く。
-/// 項目は 見た目 / タイトル / 書き出し の 3 個。用紙設定は書き出しパネル内に統合。
+/// 項目は 見た目 / 調整 / タイトル / 書き出し の 4 個（上限 6 個）。用紙設定は書き出しパネル内に統合。
 struct FloatingControlBar: View {
     @Bindable var viewModel: SheetEditorViewModel
 
@@ -12,6 +12,7 @@ struct FloatingControlBar: View {
 
     enum Tool: String, CaseIterable, Identifiable {
         case appearance
+        case adjust
         case text
         case export
 
@@ -20,6 +21,7 @@ struct FloatingControlBar: View {
         var icon: String {
             switch self {
             case .appearance: "square.grid.3x3"
+            case .adjust: "camera.filters"
             case .text: "textformat"
             case .export: "square.and.arrow.up"
             }
@@ -28,6 +30,7 @@ struct FloatingControlBar: View {
         var title: String {
             switch self {
             case .appearance: "見た目"
+            case .adjust: "調整"
             case .text: "タイトル"
             case .export: "書き出し"
             }
@@ -123,13 +126,70 @@ struct FloatingControlBar: View {
         switch tool {
         case .appearance:
             appearancePanel
+        case .adjust:
+            adjustPanel
         case .text:
-            TextField("タイトル", text: $viewModel.sheet.title)
-                .textFieldStyle(.roundedBorder)
-            TextField("サブタイトル（日付・ロール番号など）", text: $viewModel.sheet.caption)
-                .textFieldStyle(.roundedBorder)
+            textPanel
         case .export:
             exportPanel
+        }
+    }
+
+    // MARK: - タイトルパネル
+
+    @ViewBuilder
+    private var textPanel: some View {
+        TextField("タイトル", text: $viewModel.sheet.title)
+            .textFieldStyle(.roundedBorder)
+        TextField(
+            viewModel.sheet.autoDateCaption
+                ? viewModel.sheet.displayCaption
+                : "サブタイトル（日付・ロール番号など）",
+            text: $viewModel.sheet.caption
+        )
+        .textFieldStyle(.roundedBorder)
+        .disabled(viewModel.sheet.autoDateCaption)
+        .opacity(viewModel.sheet.autoDateCaption ? 0.5 : 1)
+        Toggle("撮影日を自動で入れる", isOn: $viewModel.sheet.autoDateCaption)
+            .font(.subheadline)
+        if viewModel.sheet.autoDateCaption && viewModel.sheet.captureDateRange == nil {
+            Text("撮影日情報（EXIF）のある写真がないため、サブタイトルをそのまま表示します")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - 調整パネル
+
+    @ViewBuilder
+    private var adjustPanel: some View {
+        Toggle("モノクロ", isOn: $viewModel.sheet.layout.adjustments.monochrome)
+            .font(.subheadline)
+        adjustRow("コントラスト", value: $viewModel.sheet.layout.adjustments.contrast, in: -1...1)
+        adjustRow("粒状感", value: $viewModel.sheet.layout.adjustments.grain, in: 0...1)
+        adjustRow("フェード", value: $viewModel.sheet.layout.adjustments.fade, in: 0...1)
+        adjustRow("色温度", value: $viewModel.sheet.layout.adjustments.temperature, in: -1...1)
+        adjustRow("周辺減光", value: $viewModel.sheet.layout.adjustments.vignette, in: 0...1)
+        HStack {
+            Spacer()
+            Button("リセット") {
+                viewModel.sheet.layout.adjustments = .neutral
+            }
+            .font(.subheadline)
+            .disabled(viewModel.sheet.layout.adjustments.isNeutral)
+        }
+    }
+
+    private func adjustRow(
+        _ label: String,
+        value: Binding<Double>,
+        in range: ClosedRange<Double>
+    ) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .frame(width: 76, alignment: .leading)
+            Slider(value: value, in: range)
         }
     }
 

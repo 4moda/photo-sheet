@@ -147,6 +147,12 @@ struct SheetEditorView: View {
                 }
                 if !viewModel.sheet.photos.isEmpty {
                     Divider()
+                    Button {
+                        viewModel.sortPhotosByCaptureDate()
+                    } label: {
+                        Label("撮影順に並べ替え", systemImage: "arrow.up.arrow.down")
+                    }
+                    Divider()
                     Button(role: .destructive) {
                         viewModel.removeAllPhotos()
                     } label: {

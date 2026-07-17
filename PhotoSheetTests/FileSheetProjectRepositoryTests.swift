@@ -19,19 +19,31 @@ final class FileSheetProjectRepositoryTests: XCTestCase {
         super.tearDown()
     }
 
+    /// 秒未満を落とした日時（manifest の ISO8601 表現は秒精度のため）
+    private let captureDate = Date(timeIntervalSince1970: 1_752_000_000)
+
     private func makeProject() -> SheetProject {
         var sheet = Sheet(
             photos: [
-                SheetPhoto(fileName: "01.jpg", imageData: Data([0x01, 0x02, 0x03]), aspectRatio: 1.5),
+                SheetPhoto(
+                    fileName: "01.jpg",
+                    imageData: Data([0x01, 0x02, 0x03]),
+                    aspectRatio: 1.5,
+                    captureDate: captureDate
+                ),
                 SheetPhoto(fileName: "02.jpg", imageData: Data([0x04, 0x05]), aspectRatio: 0.75)
             ],
             layout: .default
         )
         sheet.title = "OKINAWA"
         sheet.caption = "2026.07.08"
+        sheet.autoDateCaption = true
         sheet.layout.style = .filmStrip
         sheet.layout.filmFormat = .halfFrame
         sheet.layout.background = .custom(RGBAColor(red: 0.5, green: 0.4, blue: 0.3, alpha: 1))
+        sheet.layout.adjustments = SheetAdjustments(
+            monochrome: true, contrast: 0.3, grain: 0.5, fade: 0.1, temperature: 0.2, vignette: 0.4
+        )
         return SheetProject(id: UUID(), createdAt: Date(), updatedAt: Date(), sheet: sheet)
     }
 
@@ -45,9 +57,12 @@ final class FileSheetProjectRepositoryTests: XCTestCase {
         XCTAssertEqual(loaded.id, project.id)
         XCTAssertEqual(loaded.sheet.title, "OKINAWA")
         XCTAssertEqual(loaded.sheet.caption, "2026.07.08")
+        XCTAssertEqual(loaded.sheet.autoDateCaption, true)
         XCTAssertEqual(loaded.sheet.layout, project.sheet.layout)
         XCTAssertEqual(loaded.sheet.photos.count, 2)
         XCTAssertEqual(loaded.sheet.photos[0].imageData, Data([0x01, 0x02, 0x03]))
+        XCTAssertEqual(loaded.sheet.photos[0].captureDate, captureDate)
+        XCTAssertNil(loaded.sheet.photos[1].captureDate)
         XCTAssertEqual(loaded.sheet.photos[1].aspectRatio, 0.75, accuracy: 0.001)
     }
 

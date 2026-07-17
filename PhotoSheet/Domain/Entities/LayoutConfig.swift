@@ -8,20 +8,37 @@ enum SheetStyle: String, CaseIterable, Equatable, Codable {
     case filmStrip
 }
 
-/// フィルムの種類。コマの向きと比率が決まる。
+/// フィルムの種類。コマの向きと比率、ストリップの見た目（パーフォレーションの有無）が決まる。
 enum FilmFormat: String, CaseIterable, Equatable, Codable {
     /// 35mm フルフレーム: 36×24mm = 3:2 横向き
     case fullFrame
     /// ハーフフレーム: 18×24mm = 3:4 縦向き
     case halfFrame
+    /// 120 フィルム 6×6 判: 56×56mm = 1:1
+    case square66
+    /// 120 フィルム 6×7 判: 56×70mm = 5:4 横向き
+    case wide67
 
     /// コマの縦横比（幅 / 高さ）
     var frameAspect: Double {
         switch self {
         case .fullFrame: 3.0 / 2.0
         case .halfFrame: 3.0 / 4.0
+        case .square66: 1.0
+        case .wide67: 5.0 / 4.0
         }
     }
+
+    /// パーフォレーション（スプロケット穴）の有無。35mm 系のみ。120 は裏紙送りで穴がない
+    var hasSprocketHoles: Bool {
+        switch self {
+        case .fullFrame, .halfFrame: true
+        case .square66, .wide67: false
+        }
+    }
+
+    /// コマ番号の「8 / 8A」併記は 35mm の縁刻印。120 は番号のみ
+    var usesSecondaryFrameNumber: Bool { hasSprocketHoles }
 }
 
 /// 用紙フォーマット。固定比率を選ぶと定型プリントのようにシート全体の縦横比が固定される。
@@ -105,6 +122,8 @@ struct LayoutConfig: Equatable, Codable {
     var filmFormat: FilmFormat
     /// フィルムストリップの縁に白抜きで入れるエッジテキスト
     var filmEdgeText: String
+    /// シート全体の仕上げ調整（モノクロ・粒状感など）
+    var adjustments: SheetAdjustments = .neutral
 
     /// デフォルトは 6 列（35mm ベタ焼きの伝統的な列数）。
     /// 用紙は一般的なコンタクトシート運用に合わせて 8x10 を既定にする。
@@ -123,4 +142,44 @@ struct LayoutConfig: Equatable, Codable {
 
     /// 選べる列数のプリセット（6 列は 35mm ベタ焼きの伝統的な列数）
     static let columnPresets = [2, 3, 4, 6]
+}
+
+// 後方互換の Codable 実装。保存済みプロジェクトの manifest に無いキーは
+// デフォルト値へフォールバックし、フィールド追加で古いプロジェクトが開けなくなるのを防ぐ。
+extension LayoutConfig {
+    private enum CodingKeys: String, CodingKey {
+        case columns, cellAspect, spacingRatio, marginRatio, background,
+             showFilename, style, paperFormat, filmFormat, filmEdgeText, adjustments
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let base = LayoutConfig.default
+        columns = try container.decodeIfPresent(Int.self, forKey: .columns) ?? base.columns
+        cellAspect = try container.decodeIfPresent(CellAspect.self, forKey: .cellAspect) ?? base.cellAspect
+        spacingRatio = try container.decodeIfPresent(Double.self, forKey: .spacingRatio) ?? base.spacingRatio
+        marginRatio = try container.decodeIfPresent(Double.self, forKey: .marginRatio) ?? base.marginRatio
+        background = try container.decodeIfPresent(SheetBackground.self, forKey: .background) ?? base.background
+        showFilename = try container.decodeIfPresent(Bool.self, forKey: .showFilename) ?? base.showFilename
+        style = try container.decodeIfPresent(SheetStyle.self, forKey: .style) ?? base.style
+        paperFormat = try container.decodeIfPresent(PaperFormat.self, forKey: .paperFormat) ?? base.paperFormat
+        filmFormat = try container.decodeIfPresent(FilmFormat.self, forKey: .filmFormat) ?? base.filmFormat
+        filmEdgeText = try container.decodeIfPresent(String.self, forKey: .filmEdgeText) ?? base.filmEdgeText
+        adjustments = try container.decodeIfPresent(SheetAdjustments.self, forKey: .adjustments) ?? .neutral
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(columns, forKey: .columns)
+        try container.encode(cellAspect, forKey: .cellAspect)
+        try container.encode(spacingRatio, forKey: .spacingRatio)
+        try container.encode(marginRatio, forKey: .marginRatio)
+        try container.encode(background, forKey: .background)
+        try container.encode(showFilename, forKey: .showFilename)
+        try container.encode(style, forKey: .style)
+        try container.encode(paperFormat, forKey: .paperFormat)
+        try container.encode(filmFormat, forKey: .filmFormat)
+        try container.encode(filmEdgeText, forKey: .filmEdgeText)
+        try container.encode(adjustments, forKey: .adjustments)
+    }
 }

@@ -38,7 +38,7 @@ enum SheetLayoutMath {
     }
 
     static func hasHeader(_ sheet: Sheet) -> Bool {
-        !sheet.title.isEmpty || !sheet.caption.isEmpty
+        !sheet.title.isEmpty || !sheet.displayCaption.isEmpty
     }
 
     static func headerHeight(_ sheet: Sheet, width: Double) -> Double {
@@ -92,16 +92,19 @@ enum SheetLayoutMath {
         return (content - separator * Double(layout.columns - 1)) / Double(layout.columns)
     }
 
-    static func filmStripHeight(frameWidth: Double, frameAspect: Double) -> Double {
-        let bands = frameWidth * (filmEdgeTextRatio * 2 + filmSprocketRatio * 2)
-        return bands + frameWidth / frameAspect
+    static func filmStripHeight(frameWidth: Double, format: FilmFormat) -> Double {
+        let sprocketBands = format.hasSprocketHoles ? filmSprocketRatio * 2 : 0
+        let bands = frameWidth * (filmEdgeTextRatio * 2 + sprocketBands)
+        return bands + frameWidth / format.frameAspect
     }
 
     /// フィルムでは長辺がストリップ方向を向くのが物理制約。
     /// 写真の向きとコマの向きが一致しないときは 90 度回転して収める。
     /// （35mm 横コマ × 縦写真 → 回転、ハーフ縦コマ × 横写真 → 回転）
+    /// 正方形コマ（6×6）には向きがないため回転しない。
     static func filmNeedsRotation(photoAspect: Double, frameAspect: Double) -> Bool {
-        (photoAspect < 1) != (frameAspect < 1)
+        guard frameAspect != 1 else { return false }
+        return (photoAspect < 1) != (frameAspect < 1)
     }
 
     // MARK: - 全体の高さ
@@ -123,7 +126,7 @@ enum SheetLayoutMath {
             let frameWidth = filmFrameWidth(layout, width: width)
             let stripHeight = filmStripHeight(
                 frameWidth: frameWidth,
-                frameAspect: layout.filmFormat.frameAspect
+                format: layout.filmFormat
             )
             contentHeight = Double(ranges.count) * stripHeight
         }
