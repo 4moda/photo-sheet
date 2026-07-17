@@ -173,6 +173,13 @@ extension FloatingControlBar {
         adjustRow("フェード", value: $viewModel.sheet.layout.adjustments.fade, in: 0...1)
         adjustRow("色温度", value: $viewModel.sheet.layout.adjustments.temperature, in: -1...1)
         adjustRow("周辺減光", value: $viewModel.sheet.layout.adjustments.vignette, in: 0...1)
+        Toggle("デート焼き込み", isOn: $viewModel.sheet.layout.showDateStamp)
+            .font(.subheadline)
+        if viewModel.sheet.layout.showDateStamp && viewModel.sheet.captureDateRange == nil {
+            Text("撮影日情報（EXIF）のある写真にのみ日付が入ります")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
         HStack {
             Spacer()
             Button("リセット") {
@@ -215,14 +222,17 @@ extension FloatingControlBar {
         }
 
         // スタイル切替でパネルの高さが変わってバーが上下しないよう、
-        // 両バリアントを重ねて常に最大高さを確保する
+        // 全バリアントを重ねて常に最大高さを確保する
         ZStack(alignment: .topLeading) {
             gridOnlyOptions
-                .opacity(isGridStyle ? 1 : 0)
-                .allowsHitTesting(isGridStyle)
+                .opacity(currentStyle == .grid ? 1 : 0)
+                .allowsHitTesting(currentStyle == .grid)
             filmOnlyOptions
-                .opacity(isGridStyle ? 0 : 1)
-                .allowsHitTesting(!isGridStyle)
+                .opacity(currentStyle == .filmStrip ? 1 : 0)
+                .allowsHitTesting(currentStyle == .filmStrip)
+            sleeveOnlyOptions
+                .opacity(currentStyle == .negativeSleeve ? 1 : 0)
+                .allowsHitTesting(currentStyle == .negativeSleeve)
         }
 
         // 余白・間隔・背景色（旧 用紙パネルからここへ統合）
@@ -246,8 +256,8 @@ extension FloatingControlBar {
         }
     }
 
-    private var isGridStyle: Bool {
-        viewModel.sheet.layout.style == .grid
+    private var currentStyle: SheetStyle {
+        viewModel.sheet.layout.style
     }
 
     private var styleSelectionBinding: Binding<SheetStyle> {
@@ -282,20 +292,44 @@ extension FloatingControlBar {
 
     private var filmOnlyOptions: some View {
         VStack(alignment: .leading, spacing: 12) {
-            labeledRow("フィルム") {
-                Picker("フィルム", selection: $viewModel.sheet.layout.filmFormat) {
-                    ForEach(FilmFormat.allCases, id: \.self) { format in
-                        Text(format.displayName).tag(format)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
+            filmFormatRow
             labeledRow("縁の文字") {
                 TextField("エッジテキスト", text: $viewModel.sheet.layout.filmEdgeText)
                     .textFieldStyle(.roundedBorder)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
+                // 汎用のフィルム銘柄風プリセット（自由入力の補助）
+                Menu {
+                    ForEach(LayoutConfig.filmEdgeTextPresets, id: \.self) { preset in
+                        Button(preset) {
+                            viewModel.sheet.layout.filmEdgeText = preset
+                        }
+                    }
+                } label: {
+                    Image(systemName: "text.badge.star")
+                        .font(.body)
+                }
+                .accessibilityLabel("エッジテキストのプリセット")
             }
+            Toggle("縁にコマ番号を刻印", isOn: $viewModel.sheet.layout.filmEdgeShowsFrameNumbers)
+                .font(.subheadline)
+        }
+    }
+
+    private var sleeveOnlyOptions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            filmFormatRow
+        }
+    }
+
+    private var filmFormatRow: some View {
+        labeledRow("フィルム") {
+            Picker("フィルム", selection: $viewModel.sheet.layout.filmFormat) {
+                ForEach(FilmFormat.allCases, id: \.self) { format in
+                    Text(format.displayName).tag(format)
+                }
+            }
+            .pickerStyle(.segmented)
         }
     }
 

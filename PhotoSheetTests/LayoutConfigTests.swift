@@ -13,6 +13,13 @@ final class LayoutConfigTests: XCTestCase {
     func testRecommendedBackgroundByStyle() {
         XCTAssertEqual(SheetBackground.recommended(for: .grid), .white)
         XCTAssertEqual(SheetBackground.recommended(for: .filmStrip), .black)
+        XCTAssertEqual(SheetBackground.recommended(for: .negativeSleeve), .paperGray)
+    }
+
+    func testDefaultDecorationsAreOff() {
+        XCTAssertFalse(LayoutConfig.default.showDateStamp)
+        XCTAssertFalse(LayoutConfig.default.filmEdgeShowsFrameNumbers)
+        XCTAssertFalse(LayoutConfig.filmEdgeTextPresets.isEmpty)
     }
 
     func testDefaultAdjustmentsAreNeutral() {
@@ -29,6 +36,9 @@ final class LayoutConfigTests: XCTestCase {
             monochrome: true, contrast: 0.5, grain: 0.3, fade: 0.2, temperature: -0.4, vignette: 0.6
         )
         config.filmFormat = .square66
+        config.style = .negativeSleeve
+        config.showDateStamp = true
+        config.filmEdgeShowsFrameNumbers = true
         let data = try JSONEncoder().encode(config)
         let decoded = try JSONDecoder().decode(LayoutConfig.self, from: data)
         XCTAssertEqual(decoded, config)
@@ -56,5 +66,7 @@ final class LayoutConfigTests: XCTestCase {
         XCTAssertEqual(decoded.paperFormat, .a4)
         XCTAssertEqual(decoded.filmEdgeText, "TEST 400")
         XCTAssertEqual(decoded.adjustments, .neutral)
+        XCTAssertFalse(decoded.showDateStamp)
+        XCTAssertFalse(decoded.filmEdgeShowsFrameNumbers)
     }
 }

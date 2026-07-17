@@ -56,6 +56,8 @@ struct SheetCanvasView: View {
                 gridRows
             case .filmStrip:
                 filmRows
+            case .negativeSleeve:
+                sleeveRows
             }
         }
         .padding(margin)
@@ -99,6 +101,10 @@ struct SheetCanvasView: View {
                 cellWidth: cellWidth,
                 height: SheetLayoutMath.gridPhotoHeight(photo, layout: layout, cellWidth: cellWidth)
             )
+            .dateStampOverlay(
+                date: layout.showDateStamp ? photo.captureDate : nil,
+                cellWidth: cellWidth
+            )
             .dropTargetOverlay(show: dropTargetId == photo.id)
             .photoInteraction(photo, onTap: onTapPhoto, onMove: onMovePhoto) { id, targeted in
                 withAnimation(.easeInOut(duration: 0.15)) { dropTargetId = targeted ? id : nil }
@@ -130,6 +136,34 @@ struct SheetCanvasView: View {
                 separator: separator,
                 format: layout.filmFormat,
                 edgeText: layout.filmEdgeText,
+                edgeShowsFrameNumbers: layout.filmEdgeShowsFrameNumbers,
+                showDateStamp: layout.showDateStamp,
+                adjustments: layout.adjustments,
+                imageCache: imageCache,
+                onTapPhoto: onTapPhoto,
+                onMovePhoto: onMovePhoto,
+                dropTargetId: dropTargetId,
+                onDropTargeted: { id, targeted in
+                    withAnimation(.easeInOut(duration: 0.15)) { dropTargetId = targeted ? id : nil }
+                }
+            )
+        }
+    }
+
+    // MARK: - Negative sleeve style
+
+    private var sleeveRows: some View {
+        let frameWidth = SheetLayoutMath.filmFrameWidth(layout, width: width)
+        let contentWidth = SheetLayoutMath.contentWidth(layout, width: width)
+        let separator = SheetLayoutMath.filmSeparator(layout, width: width)
+        return ForEach(rowRanges.indices, id: \.self) { index in
+            NegativeSleeveRow(
+                photos: Array(sheet.photos[rowRanges[index]]),
+                frameWidth: frameWidth,
+                contentWidth: contentWidth,
+                separator: separator,
+                format: layout.filmFormat,
+                showDateStamp: layout.showDateStamp,
                 adjustments: layout.adjustments,
                 imageCache: imageCache,
                 onTapPhoto: onTapPhoto,
@@ -217,6 +251,8 @@ private struct FilmStripRow: View {
     let separator: Double
     let format: FilmFormat
     let edgeText: String
+    let edgeShowsFrameNumbers: Bool
+    let showDateStamp: Bool
     let adjustments: SheetAdjustments
     let imageCache: PhotoImageCache
     let onTapPhoto: ((UUID) -> Void)?
@@ -250,8 +286,11 @@ private struct FilmStripRow: View {
     }
 
     private var edgeTextLine: some View {
-        let repeated = Array(repeating: edgeText, count: max(columns, 1))
-            .joined(separator: "        ")
+        // コマ番号併記（▸12）は実物のフィルム縁刻印に倣ったオプション
+        let segments = (0..<max(columns, 1)).map { offset in
+            edgeShowsFrameNumbers ? "\(edgeText)  ▸\(startNumber + offset)" : edgeText
+        }
+        let repeated = segments.joined(separator: "        ")
         return Text(repeated)
             .font(.system(size: frameWidth * 0.055, weight: .medium, design: .monospaced))
             .tracking(frameWidth * 0.012)
@@ -293,6 +332,10 @@ private struct FilmStripRow: View {
                 }
                 .frame(width: frameWidth, height: frameHeight)
                 .clipped()
+                .dateStampOverlay(
+                    date: showDateStamp ? photo.captureDate : nil,
+                    cellWidth: frameWidth
+                )
                 .dropTargetOverlay(show: dropTargetId == photo.id)
                 .photoInteraction(photo, onTap: onTapPhoto, onMove: onMovePhoto, onDropTargeted: onDropTargeted)
             }
@@ -322,5 +365,88 @@ private struct FilmStripRow: View {
             Spacer(minLength: 0)
         }
         .frame(width: contentWidth, height: edgeBandHeight, alignment: .leading)
+    }
+}
+
+/// ネガシート（スリーブ）の 1 段。半透明ポケットにコマが収まっているように描く。
+private struct NegativeSleeveRow: View {
+    let photos: [SheetPhoto]
+    let frameWidth: Double
+    let contentWidth: Double
+    let separator: Double
+    let format: FilmFormat
+    let showDateStamp: Bool
+    let adjustments: SheetAdjustments
+    let imageCache: PhotoImageCache
+    let onTapPhoto: ((UUID) -> Void)?
+    let onMovePhoto: ((UUID, UUID) -> Void)?
+    var dropTargetId: UUID?
+    var onDropTargeted: ((UUID, Bool) -> Void)?
+
+    private var frameHeight: Double { frameWidth / format.frameAspect }
+    private var padding: Double { frameWidth * SheetLayoutMath.sleevePaddingRatio }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: separator) {
+            ForEach(photos) { photo in
+                Group {
+                    let rotate = SheetLayoutMath.filmNeedsRotation(
+                        photoAspect: photo.aspectRatio,
+                        frameAspect: format.frameAspect
+                    )
+                    if let image = imageCache.image(for: photo, adjustments: adjustments, rotatedQuarterTurn: rotate) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Color.gray.opacity(0.25)
+                    }
+                }
+                .frame(width: frameWidth, height: frameHeight)
+                .clipped()
+                // 半透明スリーブ越しに見えるように、わずかにミルキーな膜をかける
+                .overlay(Color.white.opacity(0.10))
+                .dateStampOverlay(
+                    date: showDateStamp ? photo.captureDate : nil,
+                    cellWidth: frameWidth
+                )
+                .dropTargetOverlay(show: dropTargetId == photo.id)
+                .photoInteraction(photo, onTap: onTapPhoto, onMove: onMovePhoto, onDropTargeted: onDropTargeted)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(width: contentWidth, height: frameHeight, alignment: .topLeading)
+        .padding(.vertical, padding)
+        .background(
+            // 半透明ポケット: フロスト面と上下の溶着シーム
+            ZStack {
+                Color.white.opacity(0.45)
+                VStack {
+                    Rectangle().fill(Color.white.opacity(0.85)).frame(height: 1)
+                    Spacer(minLength: 0)
+                    Rectangle().fill(Color.white.opacity(0.85)).frame(height: 1)
+                }
+            }
+        )
+    }
+}
+
+private extension View {
+    /// クォーツデート風のオレンジ日付をコマ右下に焼き込む（date が nil なら何もしない）
+    @ViewBuilder
+    func dateStampOverlay(date: Date?, cellWidth: Double) -> some View {
+        if let date {
+            let stampColor = Color(red: 1.0, green: 0.58, blue: 0.20)
+            overlay(alignment: .bottomTrailing) {
+                Text(DateStamp.text(for: date))
+                    .font(.system(size: cellWidth * 0.062, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(stampColor.opacity(0.92))
+                    .shadow(color: stampColor.opacity(0.85), radius: cellWidth * 0.006)
+                    .padding([.bottom, .trailing], cellWidth * 0.045)
+                    .allowsHitTesting(false)
+            }
+        } else {
+            self
+        }
     }
 }

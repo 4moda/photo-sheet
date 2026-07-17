@@ -6,6 +6,8 @@ enum SheetStyle: String, CaseIterable, Equatable, Codable {
     case grid
     /// フィルムストリップ（ベタ焼き風）: 行 = 黒いレベート帯のストリップ
     case filmStrip
+    /// ネガシート（スリーブ）: 現像所から返ってくるネガファイルの半透明ポケット風
+    case negativeSleeve
 }
 
 /// フィルムの種類。コマの向きと比率、ストリップの見た目（パーフォレーションの有無）が決まる。
@@ -100,6 +102,7 @@ enum SheetBackground: Equatable, Codable {
         switch style {
         case .grid: .white
         case .filmStrip: .black
+        case .negativeSleeve: .paperGray
         }
     }
 }
@@ -118,10 +121,14 @@ struct LayoutConfig: Equatable, Codable {
     var showFilename: Bool
     var style: SheetStyle
     var paperFormat: PaperFormat
-    /// フィルムの種類（filmStrip スタイルのみ）
+    /// フィルムの種類（filmStrip / negativeSleeve スタイル）
     var filmFormat: FilmFormat
     /// フィルムストリップの縁に白抜きで入れるエッジテキスト
     var filmEdgeText: String
+    /// エッジテキストにコマ番号（▸12 など）を併記する
+    var filmEdgeShowsFrameNumbers: Bool = false
+    /// クォーツデート風のオレンジ日付を各コマ右下に焼き込む（EXIF 撮影日がある写真のみ）
+    var showDateStamp: Bool = false
     /// シート全体の仕上げ調整（モノクロ・粒状感など）
     var adjustments: SheetAdjustments = .neutral
 
@@ -142,6 +149,15 @@ struct LayoutConfig: Equatable, Codable {
 
     /// 選べる列数のプリセット（6 列は 35mm ベタ焼きの伝統的な列数）
     static let columnPresets = [2, 3, 4, 6]
+
+    /// エッジテキストのプリセット（実在銘柄は商標リスクがあるため汎用表記）
+    static let filmEdgeTextPresets = [
+        "PHOTO SHEET 400",
+        "COLOR 400",
+        "MONO 400",
+        "CINE 800T",
+        "EXPIRED 100"
+    ]
 }
 
 // 後方互換の Codable 実装。保存済みプロジェクトの manifest に無いキーは
@@ -149,7 +165,8 @@ struct LayoutConfig: Equatable, Codable {
 extension LayoutConfig {
     private enum CodingKeys: String, CodingKey {
         case columns, cellAspect, spacingRatio, marginRatio, background,
-             showFilename, style, paperFormat, filmFormat, filmEdgeText, adjustments
+             showFilename, style, paperFormat, filmFormat, filmEdgeText,
+             filmEdgeShowsFrameNumbers, showDateStamp, adjustments
     }
 
     init(from decoder: Decoder) throws {
@@ -165,6 +182,10 @@ extension LayoutConfig {
         paperFormat = try container.decodeIfPresent(PaperFormat.self, forKey: .paperFormat) ?? base.paperFormat
         filmFormat = try container.decodeIfPresent(FilmFormat.self, forKey: .filmFormat) ?? base.filmFormat
         filmEdgeText = try container.decodeIfPresent(String.self, forKey: .filmEdgeText) ?? base.filmEdgeText
+        filmEdgeShowsFrameNumbers = try container.decodeIfPresent(
+            Bool.self, forKey: .filmEdgeShowsFrameNumbers
+        ) ?? false
+        showDateStamp = try container.decodeIfPresent(Bool.self, forKey: .showDateStamp) ?? false
         adjustments = try container.decodeIfPresent(SheetAdjustments.self, forKey: .adjustments) ?? .neutral
     }
 
@@ -180,6 +201,8 @@ extension LayoutConfig {
         try container.encode(paperFormat, forKey: .paperFormat)
         try container.encode(filmFormat, forKey: .filmFormat)
         try container.encode(filmEdgeText, forKey: .filmEdgeText)
+        try container.encode(filmEdgeShowsFrameNumbers, forKey: .filmEdgeShowsFrameNumbers)
+        try container.encode(showDateStamp, forKey: .showDateStamp)
         try container.encode(adjustments, forKey: .adjustments)
     }
 }

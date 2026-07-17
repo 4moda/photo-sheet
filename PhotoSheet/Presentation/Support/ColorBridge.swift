@@ -33,6 +33,7 @@ extension SheetStyle {
         switch self {
         case .grid: "グリッド"
         case .filmStrip: "フィルム"
+        case .negativeSleeve: "スリーブ"
         }
     }
 }

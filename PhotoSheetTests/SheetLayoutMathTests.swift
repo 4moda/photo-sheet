@@ -117,6 +117,35 @@ final class SheetLayoutMathTests: XCTestCase {
         )
     }
 
+    func testSleeveStripHeightHasPocketPadding() {
+        let frameWidth = 150.0
+        let expected = frameWidth * (0.06 * 2) + frameWidth / 1.5
+        XCTAssertEqual(
+            SheetLayoutMath.sleeveStripHeight(frameWidth: frameWidth, format: .fullFrame),
+            expected,
+            accuracy: 0.001
+        )
+    }
+
+    func testNegativeSleeveNaturalHeightUsesSleeveStrips() {
+        var sheet = makeSheet(12)
+        sheet.layout.style = .negativeSleeve
+        sheet.layout.columns = 6
+        let width = 1000.0
+
+        let frameWidth = SheetLayoutMath.filmFrameWidth(sheet.layout, width: width)
+        let stripHeight = SheetLayoutMath.sleeveStripHeight(frameWidth: frameWidth, format: .fullFrame)
+        let spacing = SheetLayoutMath.spacing(sheet.layout, width: width)
+        let margin = SheetLayoutMath.margin(sheet.layout, width: width)
+        let expected = margin * 2 + stripHeight * 2 + spacing
+
+        XCTAssertEqual(
+            SheetLayoutMath.naturalHeight(sheet: sheet, width: width),
+            expected,
+            accuracy: 0.01
+        )
+    }
+
     func testFilmFormatAspects() {
         XCTAssertEqual(FilmFormat.fullFrame.frameAspect, 1.5, accuracy: 0.001)
         XCTAssertEqual(FilmFormat.halfFrame.frameAspect, 0.75, accuracy: 0.001)

@@ -22,6 +22,8 @@ enum SheetLayoutMath {
     static let film3x2Aspect = 3.0 / 2.0
     /// film: 1 コマあたりのスプロケット穴数（35mm 実物と同じ 8 パーフォレーション）
     static let sprocketHolesPerFrame = 8
+    /// sleeve: ポケットの上下余白（コマ幅比）
+    static let sleevePaddingRatio = 0.06
 
     // MARK: - 共通
 
@@ -98,6 +100,13 @@ enum SheetLayoutMath {
         return bands + frameWidth / format.frameAspect
     }
 
+    // MARK: - negativeSleeve スタイル
+
+    /// スリーブ 1 段（ポケット）の高さ。コマ + 上下のポケット余白
+    static func sleeveStripHeight(frameWidth: Double, format: FilmFormat) -> Double {
+        frameWidth * sleevePaddingRatio * 2 + frameWidth / format.frameAspect
+    }
+
     /// フィルムでは長辺がストリップ方向を向くのが物理制約。
     /// 写真の向きとコマの向きが一致しないときは 90 度回転して収める。
     /// （35mm 横コマ × 縦写真 → 回転、ハーフ縦コマ × 横写真 → 回転）
@@ -125,6 +134,13 @@ enum SheetLayoutMath {
         case .filmStrip:
             let frameWidth = filmFrameWidth(layout, width: width)
             let stripHeight = filmStripHeight(
+                frameWidth: frameWidth,
+                format: layout.filmFormat
+            )
+            contentHeight = Double(ranges.count) * stripHeight
+        case .negativeSleeve:
+            let frameWidth = filmFrameWidth(layout, width: width)
+            let stripHeight = sleeveStripHeight(
                 frameWidth: frameWidth,
                 format: layout.filmFormat
             )
