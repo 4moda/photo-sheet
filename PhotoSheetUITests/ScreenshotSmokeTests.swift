@@ -114,6 +114,8 @@ final class ScreenshotSmokeTests: XCTestCase {
             if app.buttons["キャンセル"].exists {
                 app.buttons["キャンセル"].tap()
             }
+            // ダイアログの dismiss アニメーション完了を待つ（直後のバータップが吸われるのを防ぐ）
+            sleep(1)
         }
     }
 
@@ -122,7 +124,11 @@ final class ScreenshotSmokeTests: XCTestCase {
     @MainActor
     private func captureAppearancePanel(_ app: XCUIApplication) {
         guard tapBarButton(app, "見た目") else { return }
-        guard app.buttons["フィルム"].waitForExistence(timeout: 5) else { return }
+        if !app.buttons["フィルム"].waitForExistence(timeout: 3) {
+            // ダイアログ閉じ直後などでタップが吸われた場合に一度だけ開き直す
+            tapBarButton(app, "見た目")
+            guard app.buttons["フィルム"].waitForExistence(timeout: 5) else { return }
+        }
         sleep(1)
         snapshot("S02-F10-appearance-panel-grid")
 

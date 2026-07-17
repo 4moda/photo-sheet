@@ -176,7 +176,9 @@ jobs:
             exit 1
           fi
 
+      # 検証（次ステップ）で落ちた場合でも、撮れた分は必ず参照できるようにする
       - name: Upload screenshots (iPhone 16)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-iphone-16
