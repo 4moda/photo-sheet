@@ -17,6 +17,19 @@ final class ScreenshotSmokeTests: XCTestCase {
         return app
     }
 
+    /// フローティングバーのボタンを座標でタップする。
+    /// バーは ScrollView 外のオーバーレイのため、通常の tap() が使う AX の
+    /// 自動スクロール（kAXScrollToVisibleAction）が失敗することがある。
+    /// photo-layout と同じく coordinate タップで回避する。
+    @MainActor
+    @discardableResult
+    private func tapBarButton(_ app: XCUIApplication, _ label: String) -> Bool {
+        let button = app.buttons[label]
+        guard button.waitForExistence(timeout: 5) else { return false }
+        button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        return true
+    }
+
     // MARK: - S01 プロジェクト一覧（空）→ S02 空エディタ
 
     @MainActor
@@ -108,8 +121,7 @@ final class ScreenshotSmokeTests: XCTestCase {
 
     @MainActor
     private func captureAppearancePanel(_ app: XCUIApplication) {
-        guard app.buttons["見た目"].waitForExistence(timeout: 5) else { return }
-        app.buttons["見た目"].tap()
+        guard tapBarButton(app, "見た目") else { return }
         guard app.buttons["フィルム"].waitForExistence(timeout: 5) else { return }
         sleep(1)
         snapshot("S02-F10-appearance-panel-grid")
@@ -132,7 +144,7 @@ final class ScreenshotSmokeTests: XCTestCase {
 
         app.buttons["グリッド"].tap()
         sleep(1)
-        app.buttons["見た目"].tap()
+        tapBarButton(app, "見た目")
         sleep(1)
     }
 
@@ -140,8 +152,7 @@ final class ScreenshotSmokeTests: XCTestCase {
 
     @MainActor
     private func captureAdjustPanel(_ app: XCUIApplication) {
-        guard app.buttons["調整"].waitForExistence(timeout: 5) else { return }
-        app.buttons["調整"].tap()
+        guard tapBarButton(app, "調整") else { return }
         guard app.switches["モノクロ"].waitForExistence(timeout: 5) else { return }
         sleep(1)
         snapshot("S02-F20-adjust-panel")
@@ -161,7 +172,7 @@ final class ScreenshotSmokeTests: XCTestCase {
             app.switches["デート焼き込み"].switches.firstMatch.tap()
         }
         sleep(1)
-        app.buttons["調整"].tap()
+        tapBarButton(app, "調整")
         sleep(1)
     }
 
@@ -169,8 +180,7 @@ final class ScreenshotSmokeTests: XCTestCase {
 
     @MainActor
     private func captureTextPanel(_ app: XCUIApplication) {
-        guard app.buttons["タイトル"].waitForExistence(timeout: 5) else { return }
-        app.buttons["タイトル"].tap()
+        guard tapBarButton(app, "タイトル") else { return }
         guard app.switches["撮影日を自動で入れる"].waitForExistence(timeout: 5) else { return }
         sleep(1)
         snapshot("S02-F30-text-panel")
@@ -179,7 +189,7 @@ final class ScreenshotSmokeTests: XCTestCase {
         sleep(1)
         snapshot("S02-F31-auto-date-caption")
         app.switches["撮影日を自動で入れる"].switches.firstMatch.tap()
-        app.buttons["タイトル"].tap()
+        tapBarButton(app, "タイトル")
         sleep(1)
     }
 
@@ -187,8 +197,7 @@ final class ScreenshotSmokeTests: XCTestCase {
 
     @MainActor
     private func captureExportPanel(_ app: XCUIApplication) {
-        guard app.buttons["書き出し"].waitForExistence(timeout: 5) else { return }
-        app.buttons["書き出し"].tap()
+        guard tapBarButton(app, "書き出し") else { return }
         guard app.buttons["動画"].waitForExistence(timeout: 5) else { return }
         sleep(1)
         snapshot("S02-F40-export-image-panel")
@@ -196,7 +205,7 @@ final class ScreenshotSmokeTests: XCTestCase {
         app.buttons["動画"].tap()
         sleep(1)
         snapshot("S02-F41-export-video-panel")
-        app.buttons["書き出し"].tap()
+        tapBarButton(app, "書き出し")
         sleep(1)
     }
 }
