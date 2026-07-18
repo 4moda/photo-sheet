@@ -54,4 +54,61 @@ final class ExportSheetUseCaseTests: XCTestCase {
         XCTAssertEqual(ExportSheetUseCase.defaultPixelWidth(for: .print4x6), 2400)
         XCTAssertEqual(ExportSheetUseCase.defaultPixelWidth(for: .a4), 2400)
     }
+
+    func testPrintPixelWidthAt300DPI() throws {
+        let width = try XCTUnwrap(ExportSheetUseCase.printPixelWidth(for: .print8x10, dpi: 300))
+        XCTAssertEqual(width, 2400)
+        // 高さは PaperFormat.aspectRatio（幅 / 高さ）から導出できる
+        let aspectRatio = try XCTUnwrap(PaperFormat.print8x10.aspectRatio)
+        XCTAssertEqual(width / aspectRatio, 3000)
+    }
+
+    func testPrintPixelWidthAt600DPI() throws {
+        let width = try XCTUnwrap(ExportSheetUseCase.printPixelWidth(for: .print8x10, dpi: 600))
+        XCTAssertEqual(width, 4800)
+        let aspectRatio = try XCTUnwrap(PaperFormat.print8x10.aspectRatio)
+        XCTAssertEqual(width / aspectRatio, 6000)
+    }
+
+    func testPrintPixelWidthIsNilForNonPrintFormats() {
+        XCTAssertNil(ExportSheetUseCase.printPixelWidth(for: .flexible, dpi: 300))
+        XCTAssertNil(ExportSheetUseCase.printPixelWidth(for: .story9x16, dpi: 300))
+    }
+
+    func testPrintPixelWidthClampsToSafeUpperBound() throws {
+        // a4 は物理幅が最も広いため、高 DPI で最初に上限へ到達する
+        let width = try XCTUnwrap(ExportSheetUseCase.printPixelWidth(for: .a4, dpi: 1200))
+        XCTAssertEqual(width, ExportSheetUseCase.maxSafePixelWidth)
+    }
+
+    func testTargetPixelWidthMatchesDefaultWhenQualityIsScreen() {
+        // 品質を明示的に選ばない場合（既定 = screen）は挙動互換のため defaultPixelWidth と一致する
+        for format in PaperFormat.allCases {
+            XCTAssertEqual(
+                ExportSheetUseCase.targetPixelWidth(for: format, quality: .screen),
+                ExportSheetUseCase.defaultPixelWidth(for: format)
+            )
+        }
+    }
+
+    func testTargetPixelWidthUsesPrintQualityForPrintFormats() {
+        XCTAssertEqual(
+            ExportSheetUseCase.targetPixelWidth(for: .print8x10, quality: .printStandard), 2400
+        )
+        XCTAssertEqual(
+            ExportSheetUseCase.targetPixelWidth(for: .print8x10, quality: .printHigh), 4800
+        )
+    }
+
+    func testTargetPixelWidthFallsBackToDefaultForNonPrintFormats() {
+        // flexible / story9x16 は印刷品質を選んでいても対象外なので画面向け解像度のまま
+        XCTAssertEqual(
+            ExportSheetUseCase.targetPixelWidth(for: .flexible, quality: .printHigh),
+            ExportSheetUseCase.defaultPixelWidth(for: .flexible)
+        )
+        XCTAssertEqual(
+            ExportSheetUseCase.targetPixelWidth(for: .story9x16, quality: .printStandard),
+            ExportSheetUseCase.defaultPixelWidth(for: .story9x16)
+        )
+    }
 }

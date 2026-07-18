@@ -83,3 +83,13 @@ extension VideoExportConfig.Speed {
         }
     }
 }
+
+extension ImageExportQuality {
+    var displayName: String {
+        switch self {
+        case .screen: "コンパクト"
+        case .printStandard: "普通"
+        case .printHigh: "高画質"
+        }
+    }
+}

@@ -29,6 +29,8 @@ final class SheetEditorViewModel {
     var isSharePresented = false
     /// 動画書き出し設定（フローティングバーの動画パネルで変更）
     var videoConfig = VideoExportConfig.default
+    /// 画像書き出し品質（フローティングバーの画像パネルで変更。既定は現行互換の画面向け）
+    var imageQuality = ImageExportQuality.screen
     /// 共有する動画ファイルの URL（セット → shareSheet 表示）
     var shareVideoURL: URL?
     var isVideoSharePresented = false
@@ -179,7 +181,7 @@ final class SheetEditorViewModel {
             isExporting = true
             defer { isExporting = false }
             do {
-                try await exportSheetUseCase.saveToLibrary(sheet: sheet)
+                try await exportSheetUseCase.saveToLibrary(sheet: sheet, targetPixelWidth: exportTargetPixelWidth)
                 infoMessage = "写真に保存しました"
             } catch let error as SheetExportError {
                 errorMessage = exportErrorMessage(error)
@@ -192,7 +194,7 @@ final class SheetEditorViewModel {
     func presentShareSheet() {
         guard !sheet.photos.isEmpty else { return }
         do {
-            let data = try exportSheetUseCase.render(sheet: sheet)
+            let data = try exportSheetUseCase.render(sheet: sheet, targetPixelWidth: exportTargetPixelWidth)
             guard let image = UIImage(data: data) else {
                 throw SheetExportError.renderingFailed
             }
@@ -201,6 +203,11 @@ final class SheetEditorViewModel {
         } catch {
             errorMessage = "画像の生成に失敗しました"
         }
+    }
+
+    /// 選択中の用紙フォーマットと画質から決まる書き出しピクセル幅
+    private var exportTargetPixelWidth: Double {
+        ExportSheetUseCase.targetPixelWidth(for: sheet.layout.paperFormat, quality: imageQuality)
     }
 
     func shareToInstagramStory() {
