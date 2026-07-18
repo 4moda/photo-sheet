@@ -56,10 +56,8 @@ final class ScreenshotSmokeTests: XCTestCase {
         let app = makeApp(seed: true)
         app.launch()
 
-        // S01: デモプロジェクトのカード
+        // S01: デモプロジェクトのカード（サムネイル付きの一覧はツアー末尾で撮る）
         XCTAssertTrue(app.staticTexts["DEMO ROLL"].waitForExistence(timeout: 15))
-        sleep(1)
-        snapshot("S01-F01-project-list-populated")
 
         // S02: キャンバス（グリッド）
         app.staticTexts["DEMO ROLL"].tap()
@@ -74,9 +72,13 @@ final class ScreenshotSmokeTests: XCTestCase {
         captureTextPanel(app)
         captureExportPanel(app)
 
+        // 完了 = 保存完了を待ってから閉じる → 一覧にサムネイル付きカードが並ぶ
         if app.buttons["完了"].waitForExistence(timeout: 3) {
             app.buttons["完了"].tap()
         }
+        XCTAssertTrue(app.staticTexts["DEMO ROLL"].waitForExistence(timeout: 10))
+        sleep(2)
+        snapshot("S01-F01-project-list-populated")
     }
 
     // MARK: - [+] メニュー（追加・撮影順に並べ替え・全削除）

@@ -45,8 +45,10 @@ enum UITestSeeder {
                 fileName: String(format: "%02d", index + 1),
                 imageData: data,
                 aspectRatio: 1.5,
+                // 撮影日は 2 日にまたがせる（6 時間刻み × 8 枚 = 7/12〜7/14）。
+                // 撮影日キャプションの「範囲表示」が手入力キャプションと区別できるようにする。
                 // 後半 4 枚は「EXIF なしのフィルムスキャン」を模して nil
-                captureDate: index < 8 ? baseDate.addingTimeInterval(Double(index) * 1800) : nil
+                captureDate: index < 8 ? baseDate.addingTimeInterval(Double(index) * 21600) : nil
             )
         }
         var sheet = Sheet(photos: photos, layout: .default)

@@ -125,7 +125,11 @@ struct SheetEditorView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
             Button("完了") {
-                dismiss()
+                // 保存完了を待ってから閉じる（一覧のサムネイル reload との競合防止）
+                Task {
+                    await viewModel.persistAndWait()
+                    dismiss()
+                }
             }
         }
         ToolbarItem(placement: .topBarTrailing) {

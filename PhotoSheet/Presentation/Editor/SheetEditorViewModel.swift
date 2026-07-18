@@ -67,26 +67,31 @@ final class SheetEditorViewModel {
 
     // MARK: - Persistence
 
-    /// プロジェクトをローカルへ保存する（エディタを閉じるときに呼ぶ）。
-    /// 何も作らずに閉じた空プロジェクトは残さない。
+    /// プロジェクトをローカルへ保存する（onDisappear の保険。冪等）。
     func persist() {
+        Task { await persistAndWait() }
+    }
+
+    /// 保存の完了を待つ版。「完了」ボタンはこれを await してから dismiss する。
+    /// fire-and-forget のまま閉じると一覧の reload と競走し、サムネイルが
+    /// 保存前に一覧が描かれて欠けることがある（CI スクショレビューで発覚）。
+    /// 何も作らずに閉じた空プロジェクトは残さない。
+    func persistAndWait() async {
         let project = SheetProject(
             id: projectId,
             createdAt: projectCreatedAt,
             updatedAt: Date(),
             sheet: sheet
         )
-        Task {
-            if project.sheet.photos.isEmpty && project.sheet.title.isEmpty {
-                try? await projectRepository.delete(id: project.id)
-                return
-            }
-            // 一覧用サムネイルは実物と同じキャンバスを小さくレンダリングする（WYSIWYG）
-            let thumbnail: Data? = project.sheet.photos.isEmpty
-                ? nil
-                : try? exportSheetUseCase.render(sheet: project.sheet, targetPixelWidth: 600)
-            try? await projectRepository.save(project, thumbnailPNG: thumbnail)
+        if project.sheet.photos.isEmpty && project.sheet.title.isEmpty {
+            try? await projectRepository.delete(id: project.id)
+            return
         }
+        // 一覧用サムネイルは実物と同じキャンバスを小さくレンダリングする（WYSIWYG）
+        let thumbnail: Data? = project.sheet.photos.isEmpty
+            ? nil
+            : try? exportSheetUseCase.render(sheet: project.sheet, targetPixelWidth: 600)
+        try? await projectRepository.save(project, thumbnailPNG: thumbnail)
     }
 
     // MARK: - Import

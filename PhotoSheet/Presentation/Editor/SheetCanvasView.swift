@@ -418,13 +418,14 @@ private struct NegativeSleeveRow: View {
         .frame(width: contentWidth, height: frameHeight, alignment: .topLeading)
         .padding(.vertical, padding)
         .background(
-            // 半透明ポケット: フロスト面と上下の溶着シーム
+            // 半透明ポケット: フロスト面・上下の溶着シーム・下端の影で立体感を出す
             ZStack {
-                Color.white.opacity(0.45)
-                VStack {
-                    Rectangle().fill(Color.white.opacity(0.85)).frame(height: 1)
+                Color.white.opacity(0.5)
+                VStack(spacing: 0) {
+                    Rectangle().fill(Color.white.opacity(0.95)).frame(height: 2)
                     Spacer(minLength: 0)
-                    Rectangle().fill(Color.white.opacity(0.85)).frame(height: 1)
+                    Rectangle().fill(Color.black.opacity(0.07)).frame(height: 1.5)
+                    Rectangle().fill(Color.white.opacity(0.95)).frame(height: 2)
                 }
             }
         )
