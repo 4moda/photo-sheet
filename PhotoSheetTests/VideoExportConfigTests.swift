@@ -63,6 +63,15 @@ final class VideoExportConfigTests: XCTestCase {
         }
     }
 
+    func testAspectRatioLabelsAreReducedAndUnambiguous() {
+        XCTAssertEqual(VideoExportConfig.Preset.storyReel.aspectRatioLabel, "9:16")
+        XCTAssertEqual(VideoExportConfig.Preset.feed.aspectRatioLabel, "4:5")
+        XCTAssertEqual(VideoExportConfig.Preset.square.aspectRatioLabel, "1:1")
+
+        let labels = VideoExportConfig.Preset.allCases.map(\.aspectRatioLabel)
+        XCTAssertEqual(Set(labels).count, labels.count, "アスペクト比ラベルはプリセットごとに一意であるべき")
+    }
+
     // MARK: - Default
 
     func testDefaultConfig() {

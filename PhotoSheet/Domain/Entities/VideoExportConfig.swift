@@ -41,6 +41,20 @@ struct VideoExportConfig: Equatable, Codable {
             case .square:    "60秒以内"
             }
         }
+
+        /// アスペクト比の表示ラベル（"幅:高さ" を最大公約数で約分）。
+        /// UI 側の選択肢はこの値で統一する（SNS 名称と混在させない）。
+        var aspectRatioLabel: String {
+            let size = outputSize
+            let w = Int(size.width)
+            let h = Int(size.height)
+            let d = Self.gcd(w, h)
+            return "\(w / d):\(h / d)"
+        }
+
+        private static func gcd(_ a: Int, _ b: Int) -> Int {
+            b == 0 ? a : gcd(b, a % b)
+        }
     }
 
     /// 1ストリップあたりの表示行数（＝ズーム具合）

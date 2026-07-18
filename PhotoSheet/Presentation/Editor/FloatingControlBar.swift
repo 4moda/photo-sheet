@@ -549,16 +549,16 @@ extension FloatingControlBar {
 
     private var videoExportOptions: some View {
         VStack(alignment: .leading, spacing: 12) {
-            labeledRow("投稿先") {
-                Picker("投稿先", selection: $viewModel.videoConfig.preset) {
+            labeledRow("アスペクト比") {
+                Picker("アスペクト比", selection: $viewModel.videoConfig.preset) {
                     ForEach(VideoExportConfig.Preset.allCases, id: \.self) { preset in
-                        Text(preset.displayName).tag(preset)
+                        Text(preset.aspectRatioLabel).tag(preset)
                     }
                 }
                 .pickerStyle(.segmented)
             }
 
-            Text("尺目安: \(viewModel.videoConfig.preset.durationHint)")
+            Text("\(viewModel.videoConfig.preset.platformExample)向け・尺目安 \(viewModel.videoConfig.preset.durationHint)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
