@@ -178,6 +178,39 @@ final class SheetLayoutMathTests: XCTestCase {
         )
     }
 
+    func testHalfFramePairGapsAlternateTightAndWide() {
+        let separator = 10.0
+        // ペア内（0 の後）は密着、ペア間（1 の後）は広め
+        XCTAssertEqual(
+            SheetLayoutMath.filmGapWidth(afterFrame: 0, format: .halfFrame, separator: separator),
+            separator * 0.25, accuracy: 0.001
+        )
+        XCTAssertEqual(
+            SheetLayoutMath.filmGapWidth(afterFrame: 1, format: .halfFrame, separator: separator),
+            separator * 1.75, accuracy: 0.001
+        )
+        // 35mm は従来どおり均等
+        XCTAssertEqual(
+            SheetLayoutMath.filmGapWidth(afterFrame: 0, format: .fullFrame, separator: separator),
+            separator, accuracy: 0.001
+        )
+    }
+
+    func testHalfFrameWidthIdentityWithPairGaps() {
+        var layout = LayoutConfig.default
+        layout.filmFormat = .halfFrame
+        layout.columns = 6
+        let width = 1000.0
+        let content = SheetLayoutMath.contentWidth(layout, width: width)
+        let separator = SheetLayoutMath.filmSeparator(layout, width: width)
+        let leader = SheetLayoutMath.filmLeader(layout, width: width)
+        let frameWidth = SheetLayoutMath.filmFrameWidth(layout, width: width)
+        let gaps = SheetLayoutMath.filmGapsTotal(columns: 6, format: .halfFrame, separator: separator)
+        XCTAssertEqual(
+            leader * 2 + frameWidth * 6 + gaps, content, accuracy: 0.001
+        )
+    }
+
     func testStripLayOffsetsAreDeterministicAndBounded() {
         for row in 0..<24 {
             XCTAssertEqual(

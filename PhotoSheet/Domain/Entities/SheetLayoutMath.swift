@@ -101,11 +101,27 @@ enum SheetLayoutMath {
         contentWidth(layout, width: width) * filmLeaderRatio
     }
 
+    /// コマ index の直後の間隔。ハーフフレームは実物どおり「2 コマで 35mm 1 コマ分」なので、
+    /// ペア内は密着（0.25 倍）・ペア間は広め（1.75 倍）に振り分ける（平均は separator と同じ）
+    static func filmGapWidth(afterFrame index: Int, format: FilmFormat, separator: Double) -> Double {
+        guard format == .halfFrame else { return separator }
+        return index.isMultiple(of: 2) ? separator * 0.25 : separator * 1.75
+    }
+
+    /// 行内の全間隔の合計
+    static func filmGapsTotal(columns: Int, format: FilmFormat, separator: Double) -> Double {
+        guard columns > 1 else { return 0 }
+        return (0..<(columns - 1)).reduce(0.0) {
+            $0 + filmGapWidth(afterFrame: $1, format: format, separator: separator)
+        }
+    }
+
     static func filmFrameWidth(_ layout: LayoutConfig, width: Double) -> Double {
         let content = contentWidth(layout, width: width)
         let separator = filmSeparator(layout, width: width)
         let leader = filmLeader(layout, width: width)
-        return (content - leader * 2 - separator * Double(layout.columns - 1)) / Double(layout.columns)
+        let gaps = filmGapsTotal(columns: layout.columns, format: layout.filmFormat, separator: separator)
+        return (content - leader * 2 - gaps) / Double(layout.columns)
     }
 
     // MARK: - 手貼り感（filmStrip）
@@ -150,12 +166,13 @@ enum SheetLayoutMath {
     }
 
     /// スリーブ内のコマ幅。中身は実物どおり「切ったフィルムストリップ」なので
-    /// 端の切り残し余白（leader）も含めて計算する
+    /// 端の切り残し余白（leader）・ハーフのペア間隔も含めて計算する
     static func sleeveFrameWidth(_ layout: LayoutConfig, width: Double) -> Double {
         let content = sleeveContentWidth(layout, width: width)
         let separator = filmSeparator(layout, width: width)
         let leader = filmLeader(layout, width: width)
-        return (content - leader * 2 - separator * Double(layout.columns - 1)) / Double(layout.columns)
+        let gaps = filmGapsTotal(columns: layout.columns, format: layout.filmFormat, separator: separator)
+        return (content - leader * 2 - gaps) / Double(layout.columns)
     }
 
     /// スリーブ 1 段（ポケット）の高さ。中身のフィルムストリップ + 上下のポケット余白

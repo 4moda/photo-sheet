@@ -138,6 +138,36 @@ final class SheetCanvasViewSnapshotTests: XCTestCase {
         assertCanvas(view)
     }
 
+    /// フィルムストリップをライトテーブル背景で（アンバー刻印・発光スプロケット）
+    func testFilmStrip_lightTable() {
+        var layout = baseLayout()
+        layout.style = .filmStrip
+        layout.filmFormat = .fullFrame
+        layout.columns = 6
+        layout.background = .lightTable
+        let sheet = Sheet(photos: makePhotos(12, aspectRatio: 1.5), layout: layout)
+        let view = SheetCanvasView(
+            sheet: sheet, width: Self.canvasWidth, imageCache: imageCache
+        )
+        assertCanvas(view)
+    }
+
+    // MARK: - ネガシート（スリーブ）
+
+    /// スリーブ: フィルム入り半透明ポケット + バインダーパンチ穴
+    func testNegativeSleeve_35mm() {
+        var layout = baseLayout()
+        layout.style = .negativeSleeve
+        layout.filmFormat = .fullFrame
+        layout.columns = 6
+        layout.background = .paperGray
+        let sheet = Sheet(photos: makePhotos(12, aspectRatio: 1.5), layout: layout)
+        let view = SheetCanvasView(
+            sheet: sheet, width: Self.canvasWidth, imageCache: imageCache
+        )
+        assertCanvas(view)
+    }
+
     // MARK: - ヘッダー付き
 
     /// グリッドにタイトル・キャプションのヘッダーを追加

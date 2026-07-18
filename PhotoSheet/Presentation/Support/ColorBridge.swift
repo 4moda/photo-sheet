@@ -61,6 +61,19 @@ extension PaperFormat {
     }
 }
 
+extension SheetBackground {
+    var accessibilityName: String {
+        switch self {
+        case .white: "白"
+        case .black: "黒"
+        case .paperGray: "グレー"
+        case .baryta: "バライタ"
+        case .lightTable: "ライトテーブル"
+        case .custom: "カスタム"
+        }
+    }
+}
+
 extension VideoExportConfig.Speed {
     var displayName: String {
         switch self {

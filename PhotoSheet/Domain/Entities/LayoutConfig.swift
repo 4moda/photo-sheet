@@ -86,6 +86,10 @@ enum SheetBackground: Equatable, Codable {
     case white
     case black
     case paperGray
+    /// バライタ印画紙風の温白（ごく薄い周辺減光付きで描かれる）
+    case baryta
+    /// ライトテーブル（発光ビュアー）。フィルムの刻印はアンバー発光になる
+    case lightTable
     case custom(RGBAColor)
 
     var color: RGBAColor {
@@ -93,6 +97,8 @@ enum SheetBackground: Equatable, Codable {
         case .white: RGBAColor(red: 1, green: 1, blue: 1, alpha: 1)
         case .black: RGBAColor(red: 0.07, green: 0.07, blue: 0.07, alpha: 1)
         case .paperGray: RGBAColor(red: 0.93, green: 0.92, blue: 0.90, alpha: 1)
+        case .baryta: RGBAColor(red: 0.965, green: 0.945, blue: 0.91, alpha: 1)
+        case .lightTable: RGBAColor(red: 0.97, green: 0.96, blue: 0.925, alpha: 1)
         case .custom(let color): color
         }
     }

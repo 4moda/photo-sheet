@@ -7,6 +7,7 @@ struct FloatingControlBar: View {
 
     @State private var selectedTool: Tool?
     @State private var exportFormat: ExportFormat = .image
+    @State private var adjustGroup: AdjustGroup = .color
 
     // MARK: - ツール種別
 
@@ -163,30 +164,114 @@ extension FloatingControlBar {
     }
 
     // MARK: - 調整パネル
+    // 「編集 → グループアイコン → 設定」の二階層。今後 項目が増えても
+    // グループ（色 / 階調 / 質感 / 刻印 …）の追加で収まる構造にする（オーナー指示）。
+
+    enum AdjustGroup: String, CaseIterable, Identifiable {
+        case color
+        case tone
+        case texture
+        case stamp
+
+        var id: String { rawValue }
+
+        var icon: String {
+            switch self {
+            case .color: "paintpalette"
+            case .tone: "circle.lefthalf.filled"
+            case .texture: "circle.dotted"
+            case .stamp: "calendar.badge.clock"
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .color: "色"
+            case .tone: "階調"
+            case .texture: "質感"
+            case .stamp: "刻印"
+            }
+        }
+    }
 
     @ViewBuilder
     private var adjustPanel: some View {
-        Toggle("モノクロ", isOn: $viewModel.sheet.layout.adjustments.monochrome)
-            .font(.subheadline)
-        adjustRow("コントラスト", value: $viewModel.sheet.layout.adjustments.contrast, in: -1...1)
-        adjustRow("粒状感", value: $viewModel.sheet.layout.adjustments.grain, in: 0...1)
-        adjustRow("フェード", value: $viewModel.sheet.layout.adjustments.fade, in: 0...1)
-        adjustRow("色温度", value: $viewModel.sheet.layout.adjustments.temperature, in: -1...1)
-        adjustRow("周辺減光", value: $viewModel.sheet.layout.adjustments.vignette, in: 0...1)
-        Toggle("デート焼き込み", isOn: $viewModel.sheet.layout.showDateStamp)
-            .font(.subheadline)
-        if viewModel.sheet.layout.showDateStamp && viewModel.sheet.captureDateRange == nil {
-            Text("撮影日情報（EXIF）のある写真にのみ日付が入ります")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        HStack {
+        HStack(spacing: 6) {
+            ForEach(AdjustGroup.allCases) { group in
+                adjustGroupButton(group)
+            }
             Spacer()
             Button("リセット") {
                 viewModel.sheet.layout.adjustments = .neutral
             }
             .font(.subheadline)
             .disabled(viewModel.sheet.layout.adjustments.isNeutral)
+        }
+        Divider()
+        // 高さをグループ間で固定し、切替時にパネルが上下しないよう重ねる
+        // （非表示バリアントはアクセシビリティからも隠す）
+        ZStack(alignment: .topLeading) {
+            adjustGroupContent(.color) { colorGroup }
+            adjustGroupContent(.tone) { toneGroup }
+            adjustGroupContent(.texture) { textureGroup }
+            adjustGroupContent(.stamp) { stampGroup }
+        }
+    }
+
+    private func adjustGroupButton(_ group: AdjustGroup) -> some View {
+        let isSelected = adjustGroup == group
+        return Button {
+            withAnimation(.snappy(duration: 0.15)) { adjustGroup = group }
+        } label: {
+            Image(systemName: group.icon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .frame(width: 34, height: 34)
+                .background(
+                    Circle().fill(isSelected ? Color.accentColor : Color.gray.opacity(0.12))
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(group.title)
+    }
+
+    private func adjustGroupContent(
+        _ group: AdjustGroup,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) { content() }
+            .opacity(adjustGroup == group ? 1 : 0)
+            .allowsHitTesting(adjustGroup == group)
+            .accessibilityHidden(adjustGroup != group)
+    }
+
+    @ViewBuilder
+    private var colorGroup: some View {
+        Toggle("モノクロ", isOn: $viewModel.sheet.layout.adjustments.monochrome)
+            .font(.subheadline)
+        adjustRow("色温度", value: $viewModel.sheet.layout.adjustments.temperature, in: -1...1)
+    }
+
+    @ViewBuilder
+    private var toneGroup: some View {
+        adjustRow("コントラスト", value: $viewModel.sheet.layout.adjustments.contrast, in: -1...1)
+        adjustRow("フェード", value: $viewModel.sheet.layout.adjustments.fade, in: 0...1)
+        adjustRow("周辺減光", value: $viewModel.sheet.layout.adjustments.vignette, in: 0...1)
+    }
+
+    @ViewBuilder
+    private var textureGroup: some View {
+        adjustRow("粒状感", value: $viewModel.sheet.layout.adjustments.grain, in: 0...1)
+    }
+
+    @ViewBuilder
+    private var stampGroup: some View {
+        Toggle("デート焼き込み", isOn: $viewModel.sheet.layout.showDateStamp)
+            .font(.subheadline)
+        if viewModel.sheet.layout.showDateStamp && viewModel.sheet.captureDateRange == nil {
+            Text("撮影日情報（EXIF）のある写真にのみ日付が入ります")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -252,6 +337,8 @@ extension FloatingControlBar {
             backgroundButton(.white)
             backgroundButton(.black)
             backgroundButton(.paperGray)
+            backgroundButton(.baryta)
+            backgroundButton(.lightTable)
             ColorPicker("カスタム背景色", selection: customColorBinding)
                 .labelsHidden()
             Spacer()
@@ -346,6 +433,14 @@ extension FloatingControlBar {
             Circle()
                 .fill(Color(rgba: background.color))
                 .frame(width: 28, height: 28)
+                .overlay {
+                    // ライトテーブルだけは色でなく「発光」なのでアイコンで示す
+                    if background == .lightTable {
+                        Image(systemName: "sun.max.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.orange.opacity(0.75))
+                    }
+                }
                 .overlay(
                     Circle().strokeBorder(
                         isSelected ? Color.accentColor : Color.gray.opacity(0.4),
@@ -354,6 +449,7 @@ extension FloatingControlBar {
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(background.accessibilityName)
     }
 
     private var customColorBinding: Binding<Color> {

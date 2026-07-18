@@ -166,18 +166,24 @@ final class ScreenshotSmokeTests: XCTestCase {
     @MainActor
     private func captureAdjustPanel(_ app: XCUIApplication) {
         guard tapBarButton(app, "調整") else { return }
+        // 既定グループは「色」（モノクロ・色温度）
         guard app.switches["モノクロ"].waitForExistence(timeout: 5) else { return }
         sleep(1)
         snapshot("S02-F20-adjust-panel")
 
         app.switches["モノクロ"].switches.firstMatch.tap()
-        if app.switches["デート焼き込み"].exists {
-            app.switches["デート焼き込み"].switches.firstMatch.tap()
+        // 「刻印」グループへ切り替えてデート焼き込みを ON
+        let stampGroup = app.buttons["刻印"]
+        if stampGroup.waitForExistence(timeout: 3) {
+            stampGroup.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            if app.switches["デート焼き込み"].waitForExistence(timeout: 3) {
+                app.switches["デート焼き込み"].switches.firstMatch.tap()
+            }
         }
         sleep(2)
         snapshot("S02-F21-monochrome-datestamp")
 
-        // 後続の撮影に影響しないよう元へ戻す
+        // 後続の撮影に影響しないよう元へ戻す（リセットは調整のみ。デート焼き込みは個別に OFF）
         if app.buttons["リセット"].exists {
             app.buttons["リセット"].tap()
         }

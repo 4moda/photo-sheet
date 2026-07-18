@@ -28,7 +28,7 @@ struct SheetCanvasView: View {
             fixedPaperBody(ratio: ratio)
         } else {
             sheetContent
-                .background(Color(rgba: layout.background.color))
+                .background(backgroundFill)
         }
     }
 
@@ -38,12 +38,42 @@ struct SheetCanvasView: View {
         let naturalHeight = SheetLayoutMath.naturalHeight(sheet: sheet, width: width)
         let scale = naturalHeight > 0 ? min(1, outerHeight / naturalHeight) : 1
         return ZStack(alignment: .top) {
-            Color(rgba: layout.background.color)
+            backgroundFill
             sheetContent
                 .scaleEffect(scale, anchor: .top)
         }
         .frame(width: width, height: outerHeight)
         .clipped()
+    }
+
+    /// 背景の描画。ライトテーブルは発光ビュアー風のグラデーション、
+    /// バライタは温白 + ごく薄い周辺減光、それ以外はフラットな単色
+    @ViewBuilder
+    private var backgroundFill: some View {
+        switch layout.background {
+        case .lightTable:
+            RadialGradient(
+                colors: [
+                    Color(red: 0.995, green: 0.99, blue: 0.965),
+                    Color(red: 0.88, green: 0.875, blue: 0.845)
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: width * 0.9
+            )
+        case .baryta:
+            Color(rgba: layout.background.color)
+                .overlay(
+                    RadialGradient(
+                        colors: [.clear, .black.opacity(0.05)],
+                        center: .center,
+                        startRadius: width * 0.35,
+                        endRadius: width * 1.0
+                    )
+                )
+        default:
+            Color(rgba: layout.background.color)
+        }
     }
 
     private var sheetContent: some View {
@@ -140,6 +170,7 @@ struct SheetCanvasView: View {
                 edgeText: layout.filmEdgeText,
                 edgeShowsFrameNumbers: layout.filmEdgeShowsFrameNumbers,
                 showDateStamp: layout.showDateStamp,
+                lightTable: layout.background == .lightTable,
                 adjustments: layout.adjustments,
                 imageCache: imageCache,
                 onTapPhoto: onTapPhoto,
@@ -181,6 +212,7 @@ struct SheetCanvasView: View {
                     edgeText: layout.filmEdgeText,
                     edgeShowsFrameNumbers: layout.filmEdgeShowsFrameNumbers,
                     showDateStamp: layout.showDateStamp,
+                    lightTable: layout.background == .lightTable,
                     adjustments: layout.adjustments,
                     imageCache: imageCache,
                     onTapPhoto: onTapPhoto,
@@ -297,6 +329,8 @@ private struct FilmStripRow: View {
     let edgeText: String
     let edgeShowsFrameNumbers: Bool
     let showDateStamp: Bool
+    /// 背景がライトテーブルのとき true。刻印がアンバー発光・スプロケットが光の抜けになる
+    let lightTable: Bool
     let adjustments: SheetAdjustments
     let imageCache: PhotoImageCache
     let onTapPhoto: ((UUID) -> Void)?
@@ -309,7 +343,10 @@ private struct FilmStripRow: View {
     private static let filmBlack = Color(red: 0.055, green: 0.048, blue: 0.042)
     /// エッジ刻印の色。プリント上の刻印は紙白なので、純白でなく僅かに黄味の温白
     private static let edgeInk = Color(red: 0.97, green: 0.94, blue: 0.86)
+    /// ライトテーブル時の刻印色。黒いベースの透明文字を光が透けるアンバー発光
+    private static let amberInk = Color(red: 1.0, green: 0.72, blue: 0.32)
 
+    private var ink: Color { lightTable ? Self.amberInk : Self.edgeInk }
     private var frameAspect: Double { format.frameAspect }
     private var frameHeight: Double { frameWidth / frameAspect }
     private var edgeBandHeight: Double { frameWidth * SheetLayoutMath.filmEdgeTextRatio }
@@ -341,7 +378,8 @@ private struct FilmStripRow: View {
         return Text(repeated)
             .font(.system(size: frameWidth * 0.055, weight: .medium, design: .monospaced))
             .tracking(frameWidth * 0.012)
-            .foregroundStyle(Self.edgeInk.opacity(0.6))
+            .foregroundStyle(ink.opacity(lightTable ? 0.95 : 0.6))
+            .shadow(color: lightTable ? Self.amberInk.opacity(0.8) : .clear, radius: frameWidth * 0.012)
             .lineLimit(1)
             .frame(width: contentWidth, height: edgeBandHeight)
             .clipped()
@@ -353,7 +391,19 @@ private struct FilmStripRow: View {
         return HStack(spacing: 0) {
             ForEach(0..<holeCount, id: \.self) { _ in
                 RoundedRectangle(cornerRadius: slotWidth * 0.14)
-                    .fill(Self.edgeInk.opacity(0.14))
+                    // プリントでは穴は光の素通し = レベートよりさらに黒く写る。
+                    // ライトテーブルでは逆に、穴を光が抜けて明るく光る
+                    .fill(lightTable
+                        ? Color(red: 1.0, green: 0.93, blue: 0.80).opacity(0.95)
+                        : Color.black.opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: slotWidth * 0.14)
+                            .strokeBorder(Self.edgeInk.opacity(lightTable ? 0 : 0.12), lineWidth: 0.5)
+                    )
+                    .shadow(
+                        color: lightTable ? Self.amberInk.opacity(0.7) : .clear,
+                        radius: slotWidth * 0.18
+                    )
                     .frame(width: slotWidth * 0.45, height: sprocketBandHeight * 0.62)
                     .frame(width: slotWidth, height: sprocketBandHeight)
             }
@@ -361,30 +411,16 @@ private struct FilmStripRow: View {
     }
 
     private var photoRow: some View {
-        HStack(alignment: .top, spacing: separator) {
-            ForEach(photos) { photo in
-                Group {
-                    // フィルムの物理制約: 長辺はストリップ方向。向きが合わない写真は回転して収める
-                    let rotate = SheetLayoutMath.filmNeedsRotation(
-                        photoAspect: photo.aspectRatio,
-                        frameAspect: frameAspect
+        HStack(alignment: .top, spacing: 0) {
+            ForEach(Array(photos.enumerated()), id: \.element.id) { offset, photo in
+                frameView(photo, number: startNumber + offset)
+                if offset < photos.count - 1 {
+                    Color.clear.frame(
+                        width: SheetLayoutMath.filmGapWidth(
+                            afterFrame: offset, format: format, separator: separator
+                        )
                     )
-                    if let image = imageCache.image(for: photo, adjustments: adjustments, rotatedQuarterTurn: rotate) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        Color.gray.opacity(0.25)
-                    }
                 }
-                .frame(width: frameWidth, height: frameHeight)
-                .clipped()
-                .dateStampOverlay(
-                    date: showDateStamp ? photo.captureDate : nil,
-                    cellWidth: frameWidth
-                )
-                .dropTargetOverlay(show: dropTargetId == photo.id)
-                .photoInteraction(photo, onTap: onTapPhoto, onMove: onMovePhoto, onDropTargeted: onDropTargeted)
             }
             Spacer(minLength: 0)
         }
@@ -392,8 +428,41 @@ private struct FilmStripRow: View {
         .frame(width: contentWidth, height: frameHeight, alignment: .topLeading)
     }
 
+    private func frameView(_ photo: SheetPhoto, number: Int) -> some View {
+        Group {
+            // フィルムの物理制約: 長辺はストリップ方向。向きが合わない写真は回転して収める
+            let rotate = SheetLayoutMath.filmNeedsRotation(
+                photoAspect: photo.aspectRatio,
+                frameAspect: frameAspect
+            )
+            if let image = imageCache.image(for: photo, adjustments: adjustments, rotatedQuarterTurn: rotate) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Color.gray.opacity(0.25)
+            }
+        }
+        .frame(width: frameWidth, height: frameHeight)
+        .clipped()
+        .overlay(unevennessOverlay(number: number))
+        .dateStampOverlay(
+            date: showDateStamp ? photo.captureDate : nil,
+            cellWidth: frameWidth
+        )
+        .dropTargetOverlay(show: dropTargetId == photo.id)
+        .photoInteraction(photo, onTap: onTapPhoto, onMove: onMovePhoto, onDropTargeted: onDropTargeted)
+    }
+
+    /// 露光ムラ: ラボ焼きの僅かな明度差（±2%、コマ番号キーの決定論ノイズ）
+    private func unevennessOverlay(number: Int) -> some View {
+        let delta = (SheetLayoutMath.stripLayNoise(row: number, salt: 0xE4_B05E) - 0.5) * 0.04
+        return (delta >= 0 ? Color.white.opacity(delta) : Color.black.opacity(-delta))
+            .allowsHitTesting(false)
+    }
+
     private var numberLine: some View {
-        HStack(alignment: .center, spacing: separator) {
+        HStack(alignment: .center, spacing: 0) {
             ForEach(Array(photos.enumerated()), id: \.element.id) { offset, _ in
                 let number = startNumber + offset
                 HStack {
@@ -406,9 +475,17 @@ private struct FilmStripRow: View {
                     }
                 }
                 .font(.system(size: frameWidth * 0.06, weight: .medium, design: .monospaced))
-                .foregroundStyle(Self.edgeInk.opacity(0.75))
+                .foregroundStyle(ink.opacity(lightTable ? 0.95 : 0.75))
+                .shadow(color: lightTable ? Self.amberInk.opacity(0.8) : .clear, radius: frameWidth * 0.01)
                 .padding(.horizontal, frameWidth * 0.03)
                 .frame(width: frameWidth)
+                if offset < photos.count - 1 {
+                    Color.clear.frame(
+                        width: SheetLayoutMath.filmGapWidth(
+                            afterFrame: offset, format: format, separator: separator
+                        )
+                    )
+                }
             }
             Spacer(minLength: 0)
         }
@@ -432,6 +509,7 @@ private struct NegativeSleeveRow: View {
     let edgeText: String
     let edgeShowsFrameNumbers: Bool
     let showDateStamp: Bool
+    let lightTable: Bool
     let adjustments: SheetAdjustments
     let imageCache: PhotoImageCache
     let onTapPhoto: ((UUID) -> Void)?
@@ -454,6 +532,7 @@ private struct NegativeSleeveRow: View {
             edgeText: edgeText,
             edgeShowsFrameNumbers: edgeShowsFrameNumbers,
             showDateStamp: showDateStamp,
+            lightTable: lightTable,
             adjustments: adjustments,
             imageCache: imageCache,
             onTapPhoto: onTapPhoto,
