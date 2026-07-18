@@ -549,6 +549,19 @@ extension FloatingControlBar {
 
     private var videoExportOptions: some View {
         VStack(alignment: .leading, spacing: 12) {
+            labeledRow("投稿先") {
+                Picker("投稿先", selection: $viewModel.videoConfig.preset) {
+                    ForEach(VideoExportConfig.Preset.allCases, id: \.self) { preset in
+                        Text(preset.displayName).tag(preset)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Text("尺目安: \(viewModel.videoConfig.preset.durationHint)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             labeledRow("速度") {
                 Picker("速度", selection: $viewModel.videoConfig.speed) {
                     ForEach(VideoExportConfig.Speed.allCases, id: \.self) { s in

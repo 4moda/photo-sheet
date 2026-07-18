@@ -84,6 +84,16 @@ extension VideoExportConfig.Speed {
     }
 }
 
+extension VideoExportConfig.Preset {
+    var displayName: String {
+        switch self {
+        case .storyReel: "Story/Reels"
+        case .feed:      "フィード"
+        case .square:    "正方形"
+        }
+    }
+}
+
 extension ImageExportQuality {
     var displayName: String {
         switch self {
