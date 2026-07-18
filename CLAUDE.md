@@ -63,14 +63,13 @@ scripts/test-core.sh          # コアのテストが数秒で回る。コア変
 
 ### 参照画像を初回生成 / 更新する手順
 
-1. **GitHub Actions > Update Snapshots > Run workflow** を手動実行（`workflow_dispatch`）
-2. 完了後、該当 run の Artifacts から `snapshot-images.zip` をダウンロード
-3. 展開して `PhotoSheetSnapshotTests/__Snapshots__/SheetCanvasViewSnapshotTests/` に配置
-4. コミット・push（次の CI からは比較モードで動く）
+1. **GitHub Actions > Update Snapshots > Run workflow** を対象ブランチを選んで手動実行（`workflow_dispatch`）
+2. ワークフローが記録した参照画像を `PhotoSheetSnapshotTests/__Snapshots__/SheetCanvasViewSnapshotTests/` へ**自身でコミット・push**する（差分がなければ何もしない）。人間による artifact のダウンロード・展開・コミットは不要（次の CI からは比較モードで動く）
+3. 実行結果は artifact `snapshot-images` としても残るため、確認・監査に使える
 
 ### レイアウトを意図的に変えたとき
 
-CI の `Build & Test` が snapshot failure で落ちる → 上記の手順で参照画像を更新してコミット。
+CI の `Build & Test` が snapshot failure で落ちる → 上記のワークフローを実行すれば参照画像の更新・反映まで完了する。
 
 ### ローカル（Mac + Xcode）で確認したいとき
 

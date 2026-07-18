@@ -34,10 +34,8 @@ gh run view <run-id> --log-failed | grep -E "error:" | head -30
 
 `PhotoSheetSnapshotTests` が意図通りに変わった場合のみ参照画像を更新する。
 
-1. Actions の `Update Snapshots` を手動実行
-2. `snapshot-images.zip` を取得
-3. `PhotoSheetSnapshotTests/__Snapshots__/...` に反映
-4. コミットして CI で比較モードに戻す
+1. Actions の `Update Snapshots` を対象ブランチで手動実行
+2. ワークフローが `PhotoSheetSnapshotTests/__Snapshots__/...` の変更を自動でコミット・push する（差分がなければ何もしない）。人間による artifact のダウンロード・展開・コミットは不要。次の CI からは比較モードで動く
 
 ## 既知の注意点
 
