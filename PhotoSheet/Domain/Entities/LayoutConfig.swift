@@ -61,6 +61,17 @@ enum PaperFormat: String, CaseIterable, Equatable, Codable {
         case .story9x16: 9.0 / 16.0
         }
     }
+
+    /// 印刷用紙の物理幅（インチ、縦向き）。DPI からピクセル幅を算出する基準になる。
+    /// flexible / story9x16 は物理的な用紙サイズを持たない画面向けフォーマットのため nil。
+    var printPhysicalWidthInches: Double? {
+        switch self {
+        case .print8x10: 8.0
+        case .print4x6: 4.0
+        case .a4: 210.0 / 25.4 // ISO 216 A4 = 210mm
+        case .flexible, .story9x16: nil
+        }
+    }
 }
 
 /// セルの縦横比（grid スタイル用）

@@ -522,13 +522,28 @@ extension FloatingControlBar {
     }
 
     private var imageExportOptions: some View {
-        labeledRow("用紙") {
-            Picker("用紙", selection: $viewModel.sheet.layout.paperFormat) {
-                ForEach(PaperFormat.allCases, id: \.self) { format in
-                    Text(format.displayName).tag(format)
+        VStack(alignment: .leading, spacing: 12) {
+            labeledRow("用紙") {
+                Picker("用紙", selection: $viewModel.sheet.layout.paperFormat) {
+                    ForEach(PaperFormat.allCases, id: \.self) { format in
+                        Text(format.displayName).tag(format)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            // 印刷系用紙（8x10 / 4x6 / A4）のときだけ印刷品質を選べる。
+            // flexible / story9x16 は物理的な印刷用紙を持たないため画面向けのみ
+            if viewModel.sheet.layout.paperFormat.printPhysicalWidthInches != nil {
+                labeledRow("画質") {
+                    Picker("画質", selection: $viewModel.imageQuality) {
+                        ForEach(ImageExportQuality.allCases, id: \.self) { quality in
+                            Text(quality.displayName).tag(quality)
+                        }
+                    }
+                    .pickerStyle(.segmented)
                 }
             }
-            .pickerStyle(.segmented)
         }
     }
 
