@@ -15,9 +15,7 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
 
     // MARK: - 動画仕様
 
-    static let outputWidth  = 1080
-    static let outputHeight = 1920
-    static let fps: Int32   = 30
+    static let fps: Int32 = 30
 
     private let canvasBuilder: @MainActor (Sheet, CGFloat) -> AnyView
 
@@ -34,7 +32,8 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
         outputURL: URL,
         onProgress: @Sendable (Double) async -> Void
     ) async throws {
-        let canvasWidth = CGFloat(Self.outputWidth)
+        let outputSize = config.preset.outputSize
+        let canvasWidth = outputSize.width
 
         // 1. キャンバス全体を一度だけレンダリング
         let view = canvasBuilder(sheet, canvasWidth)
@@ -49,7 +48,6 @@ final class AVFoundationVideoExporter: SheetVideoRenderer {
         }
 
         // 2. ストリップのジオメトリを計算
-        let outputSize = CGSize(width: Self.outputWidth, height: Self.outputHeight)
         let strips = VideoExportGeometry.computeStrips(sheet: sheet, canvasWidth: canvasWidth, config: config)
 
         // 3. 背景色

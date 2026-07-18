@@ -84,6 +84,18 @@ extension VideoExportConfig.Speed {
     }
 }
 
+extension VideoExportConfig.Preset {
+    /// 対応する SNS 投稿先の代表例（キャプション用の補足テキスト）。
+    /// 選択肢自体のラベルは Domain の `aspectRatioLabel` に統一し、SNS 名称と混在させない。
+    var platformExample: String {
+        switch self {
+        case .storyReel: "Story/Reels"
+        case .feed:      "フィード"
+        case .square:    "正方形"
+        }
+    }
+}
+
 extension ImageExportQuality {
     var displayName: String {
         switch self {
