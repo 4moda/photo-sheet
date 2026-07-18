@@ -87,9 +87,9 @@ extension VideoExportConfig.Speed {
 extension ImageExportQuality {
     var displayName: String {
         switch self {
-        case .screen: "画面向け（現行）"
-        case .printStandard: "プリント（標準）"
-        case .printHigh: "プリント（高精細）"
+        case .screen: "コンパクト"
+        case .printStandard: "普通"
+        case .printHigh: "高画質"
         }
     }
 }

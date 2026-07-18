@@ -534,8 +534,6 @@ extension FloatingControlBar {
 
             // 印刷系用紙（8x10 / 4x6 / A4）のときだけ印刷品質を選べる。
             // flexible / story9x16 は物理的な印刷用紙を持たないため画面向けのみ
-            // ラベルが長く segmented では文字が切れるため、他のピッカーと異なり
-            // menu（セレクトボックス）スタイルにする（PR #12 オーナー指摘）
             if viewModel.sheet.layout.paperFormat.printPhysicalWidthInches != nil {
                 labeledRow("画質") {
                     Picker("画質", selection: $viewModel.imageQuality) {
@@ -543,8 +541,7 @@ extension FloatingControlBar {
                             Text(quality.displayName).tag(quality)
                         }
                     }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
+                    .pickerStyle(.segmented)
                 }
             }
         }
