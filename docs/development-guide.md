@@ -15,6 +15,12 @@ gh run watch <run-id> --exit-status
 gh run view <run-id> --log-failed | grep -E "error:" | head -30
 ```
 
+## ツールチェーン（CI）
+
+- macOS ランナー: `macos-26`、Xcode は `DEVELOPER_DIR` で **26.6 固定**（photo-layout と同じ）
+- シミュレータ: iPhone 17
+- Linux コアテスト: `swift:6.3-noble`（Xcode 26.6 = Swift 6.3 に整合）
+
 ## ワークフロー
 
 - `CI`: SwiftLint / Linux コアテスト / macOS Build & Test / Domain coverage gate / スクショ撮影（fastlane snapshot）+ Cloudflare Pages デプロイ。docs・Markdown のみの変更ではスキップ（paths-ignore）

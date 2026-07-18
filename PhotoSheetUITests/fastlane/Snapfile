@@ -5,10 +5,10 @@
 
 project("../PhotoSheet.xcodeproj")
 
-# まずは iPhone 16 の 1 機種から（macos-15 イメージのシミュレータ）。
+# まずは iPhone 17 の 1 機種から（macos-26 イメージのシミュレータ）。
 # 機種を増やすときは photo-layout と同様に SNAPSHOT_DEVICES（カンマ区切り）で
 # CI の matrix ジョブごとに絞り込む。未設定時（ローカル実行）は全機種を逐次撮影。
-default_devices = ["iPhone 16"]
+default_devices = ["iPhone 17"]
 devices(ENV["SNAPSHOT_DEVICES"]&.split(",") || default_devices)
 languages(["ja-JP"])
 

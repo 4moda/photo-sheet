@@ -304,8 +304,11 @@ private struct FilmStripRow: View {
     var dropTargetId: UUID?
     var onDropTargeted: ((UUID, Bool) -> Void)?
 
-    /// フィルムベースの黒（純黒より僅かに浮かせて「焼かれた黒」に寄せる）
-    private static let filmBlack = Color(red: 0.043, green: 0.043, blue: 0.05)
+    /// フィルムベースの黒。現像済みフィルムのベースは青ではなく**温かい暗グレー**
+    /// （純黒より僅かに浮かせて「焼かれた黒」に寄せる）
+    private static let filmBlack = Color(red: 0.055, green: 0.048, blue: 0.042)
+    /// エッジ刻印の色。プリント上の刻印は紙白なので、純白でなく僅かに黄味の温白
+    private static let edgeInk = Color(red: 0.97, green: 0.94, blue: 0.86)
 
     private var frameAspect: Double { format.frameAspect }
     private var frameHeight: Double { frameWidth / frameAspect }
@@ -338,7 +341,7 @@ private struct FilmStripRow: View {
         return Text(repeated)
             .font(.system(size: frameWidth * 0.055, weight: .medium, design: .monospaced))
             .tracking(frameWidth * 0.012)
-            .foregroundStyle(.white.opacity(0.55))
+            .foregroundStyle(Self.edgeInk.opacity(0.6))
             .lineLimit(1)
             .frame(width: contentWidth, height: edgeBandHeight)
             .clipped()
@@ -350,7 +353,7 @@ private struct FilmStripRow: View {
         return HStack(spacing: 0) {
             ForEach(0..<holeCount, id: \.self) { _ in
                 RoundedRectangle(cornerRadius: slotWidth * 0.14)
-                    .fill(.white.opacity(0.16))
+                    .fill(Self.edgeInk.opacity(0.14))
                     .frame(width: slotWidth * 0.45, height: sprocketBandHeight * 0.62)
                     .frame(width: slotWidth, height: sprocketBandHeight)
             }
@@ -403,7 +406,7 @@ private struct FilmStripRow: View {
                     }
                 }
                 .font(.system(size: frameWidth * 0.06, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Self.edgeInk.opacity(0.75))
                 .padding(.horizontal, frameWidth * 0.03)
                 .frame(width: frameWidth)
             }

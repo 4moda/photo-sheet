@@ -19,10 +19,14 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # macos-26 イメージの Xcode を明示固定（"latest" 任せによるシミュレータ不整合を防ぐ。photo-layout と同じ）
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+
 jobs:
   lint:
     name: SwiftLint
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -36,7 +40,8 @@ jobs:
     name: Core Tests (Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    container: swift:6.0
+    # Xcode 26.6 = Swift 6.3 とツールチェーンを揃える
+    container: swift:6.3-noble
     steps:
       - uses: actions/checkout@v4
       - name: Run core tests
@@ -44,7 +49,7 @@ jobs:
 
   build-and-test:
     name: Build & Test (macOS)
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -64,7 +69,7 @@ jobs:
           for runtime, devices in data.get('devices', {}).items():
               if 'iOS' in runtime:
                   for d in devices:
-                      if d.get('name') == 'iPhone 16' and d.get('isAvailable'):
+                      if d.get('name') == 'iPhone 17' and d.get('isAvailable'):
                           candidates.append((runtime, d['udid']))
           if candidates:
               print(sorted(candidates)[-1][1])
@@ -128,12 +133,12 @@ jobs:
   # build-and-test のビルド成果物を artifact 経由で再利用（再コンパイルなし）。
   # 機種を増やすときは photo-layout と同様に matrix + SNAPSHOT_DEVICES で並列化する。
   screenshots:
-    name: Screenshots (iPhone 16)
+    name: Screenshots (iPhone 17)
     needs: build-and-test
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 30
     env:
-      SNAPSHOT_DEVICES: iPhone 16
+      SNAPSHOT_DEVICES: iPhone 17
     steps:
       - uses: actions/checkout@v4
 
@@ -177,11 +182,11 @@ jobs:
           fi
 
       # 検証（次ステップ）で落ちた場合でも、撮れた分は必ず参照できるようにする
-      - name: Upload screenshots (iPhone 16)
+      - name: Upload screenshots (iPhone 17)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots-iphone-16
+          name: screenshots-iphone-17
           path: PhotoSheetUITests/fastlane/screenshots
           if-no-files-found: warn
           retention-days: 7

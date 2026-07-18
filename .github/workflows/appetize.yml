@@ -23,7 +23,9 @@ concurrency:
 jobs:
   deploy:
     name: Build & upload to Appetize
-    runs-on: macos-15
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     timeout-minutes: 40
     # 手動実行、または CI が成功したときのみ実行（失敗/キャンセル時はスキップ）
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
