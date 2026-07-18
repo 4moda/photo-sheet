@@ -1,16 +1,16 @@
 name: Update Snapshots
 
-# スナップショットの参照画像を CI で再生成するための手動ワークフロー。
+# スナップショットの参照画像を CI で再生成し、実行対象ブランチへ直接コミット・push する手動ワークフロー。
 # 実行手順:
-#   1. GitHub Actions > Update Snapshots > Run workflow
-#   2. 完了後、Artifacts の `snapshot-images` をダウンロード
-#   3. PhotoSheetSnapshotTests/__Snapshots__/SheetCanvasViewSnapshotTests/ に展開してコミット
+#   1. GitHub Actions > Update Snapshots > Run workflow（対象ブランチを選択）
+#   2. 完了後、参照画像の変更は自動でコミット・push 済み（差分がなければ何もしない）
+#   3. artifact `snapshot-images` は監査・確認用に引き続きアップロードされる
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   record:
@@ -71,3 +71,15 @@ jobs:
         with:
           name: snapshot-images
           path: PhotoSheetSnapshotTests/__Snapshots__/
+
+      - name: Commit and push updated snapshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PhotoSheetSnapshotTests/__Snapshots__/
+          if git diff --cached --quiet; then
+            echo "No snapshot changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: スナップショット参照画像を自動更新 (run ${{ github.run_id }})"
+          git push origin HEAD:${{ github.ref_name }}
