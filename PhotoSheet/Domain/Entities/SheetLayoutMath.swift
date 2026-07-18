@@ -24,6 +24,14 @@ enum SheetLayoutMath {
     static let sprocketHolesPerFrame = 8
     /// sleeve: ポケットの上下余白（コマ幅比）
     static let sleevePaddingRatio = 0.06
+    /// sleeve: バインダー穴の余白（コンテンツ幅比）
+    static let sleevePunchMarginRatio = 0.07
+    /// film: ストリップ端の切り残し余白（コンテンツ幅比）。実物はカットで先頭・末尾に数 mm 残る
+    static let filmLeaderRatio = 0.012
+    /// film: 手貼りオフセットの最大値（シート幅比）
+    static let stripLayMaxOffsetRatio = 0.004
+    /// film: 手貼り回転の最大値（度）
+    static let stripLayMaxRotationDegrees = 0.22
 
     // MARK: - 共通
 
@@ -88,10 +96,39 @@ enum SheetLayoutMath {
         contentWidth(layout, width: width) * filmSeparatorRatio
     }
 
+    /// ストリップ端の切り残し余白（片側分）
+    static func filmLeader(_ layout: LayoutConfig, width: Double) -> Double {
+        contentWidth(layout, width: width) * filmLeaderRatio
+    }
+
     static func filmFrameWidth(_ layout: LayoutConfig, width: Double) -> Double {
         let content = contentWidth(layout, width: width)
         let separator = filmSeparator(layout, width: width)
-        return (content - separator * Double(layout.columns - 1)) / Double(layout.columns)
+        let leader = filmLeader(layout, width: width)
+        return (content - leader * 2 - separator * Double(layout.columns - 1)) / Double(layout.columns)
+    }
+
+    // MARK: - 手貼り感（filmStrip）
+
+    /// 行ごとの決定論的な擬似乱数 [0, 1)。整数ハッシュ（splitmix64）ベースなので
+    /// プレビュー・書き出し・スナップショットで常に同じ値になる（WYSIWYG の前提）。
+    static func stripLayNoise(row: Int, salt: UInt64) -> Double {
+        var value = UInt64(bitPattern: Int64(row)) &+ salt &+ 0x9E37_79B9_7F4A_7C15
+        value = (value ^ (value >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        value = (value ^ (value >> 27)) &* 0x94D0_49BB_1331_11EB
+        value ^= value >> 31
+        return Double(value % 100_000) / 100_000.0
+    }
+
+    /// 手貼り感: 行ごとの僅かな横オフセット（シート幅比、±stripLayMaxOffsetRatio）。
+    /// ベタ焼きは 6 コマずつ切ったストリップを手で並べるため、実物は行が完全には揃わない。
+    static func stripLayOffsetRatio(row: Int) -> Double {
+        (stripLayNoise(row: row, salt: 0x0FF5_E7) - 0.5) * 2 * stripLayMaxOffsetRatio
+    }
+
+    /// 手貼り感: 行ごとの僅かな回転（度、±stripLayMaxRotationDegrees）
+    static func stripLayRotationDegrees(row: Int) -> Double {
+        (stripLayNoise(row: row, salt: 0x0207_A7E) - 0.5) * 2 * stripLayMaxRotationDegrees
     }
 
     static func filmStripHeight(frameWidth: Double, format: FilmFormat) -> Double {
@@ -102,9 +139,28 @@ enum SheetLayoutMath {
 
     // MARK: - negativeSleeve スタイル
 
-    /// スリーブ 1 段（ポケット）の高さ。コマ + 上下のポケット余白
+    /// バインダー穴の余白幅
+    static func sleevePunchMargin(_ layout: LayoutConfig, width: Double) -> Double {
+        contentWidth(layout, width: width) * sleevePunchMarginRatio
+    }
+
+    /// スリーブに入るフィルムストリップが使える幅（コンテンツ幅 − バインダー穴余白）
+    static func sleeveContentWidth(_ layout: LayoutConfig, width: Double) -> Double {
+        contentWidth(layout, width: width) - sleevePunchMargin(layout, width: width)
+    }
+
+    /// スリーブ内のコマ幅。中身は実物どおり「切ったフィルムストリップ」なので
+    /// 端の切り残し余白（leader）も含めて計算する
+    static func sleeveFrameWidth(_ layout: LayoutConfig, width: Double) -> Double {
+        let content = sleeveContentWidth(layout, width: width)
+        let separator = filmSeparator(layout, width: width)
+        let leader = filmLeader(layout, width: width)
+        return (content - leader * 2 - separator * Double(layout.columns - 1)) / Double(layout.columns)
+    }
+
+    /// スリーブ 1 段（ポケット）の高さ。中身のフィルムストリップ + 上下のポケット余白
     static func sleeveStripHeight(frameWidth: Double, format: FilmFormat) -> Double {
-        frameWidth * sleevePaddingRatio * 2 + frameWidth / format.frameAspect
+        frameWidth * sleevePaddingRatio * 2 + filmStripHeight(frameWidth: frameWidth, format: format)
     }
 
     /// フィルムでは長辺がストリップ方向を向くのが物理制約。
@@ -139,7 +195,7 @@ enum SheetLayoutMath {
             )
             contentHeight = Double(ranges.count) * stripHeight
         case .negativeSleeve:
-            let frameWidth = filmFrameWidth(layout, width: width)
+            let frameWidth = sleeveFrameWidth(layout, width: width)
             let stripHeight = sleeveStripHeight(
                 frameWidth: frameWidth,
                 format: layout.filmFormat

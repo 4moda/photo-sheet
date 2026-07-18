@@ -66,7 +66,7 @@ enum VideoExportGeometry {
                     format: layout.filmFormat
                 ))
             case .negativeSleeve:
-                let fw = CGFloat(SheetLayoutMath.filmFrameWidth(layout, width: w))
+                let fw = CGFloat(SheetLayoutMath.sleeveFrameWidth(layout, width: w))
                 h = CGFloat(SheetLayoutMath.sleeveStripHeight(
                     frameWidth: Double(fw),
                     format: layout.filmFormat

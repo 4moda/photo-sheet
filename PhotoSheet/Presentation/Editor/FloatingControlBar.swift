@@ -224,20 +224,17 @@ extension FloatingControlBar {
         // スタイル切替でパネルの高さが変わってバーが上下しないよう、
         // 全バリアントを重ねて常に最大高さを確保する
         // accessibilityHidden: 非表示バリアントを VoiceOver / XCUITest から隠す
-        // （opacity 0 でもアクセシビリティツリーには残り、同名ボタンが重複するため）
+        // （opacity 0 でもアクセシビリティツリーには残り、同名ボタンが重複するため）。
+        // スリーブの中身はフィルムストリップなので、フィルム系オプションを共有する
         ZStack(alignment: .topLeading) {
             gridOnlyOptions
                 .opacity(currentStyle == .grid ? 1 : 0)
                 .allowsHitTesting(currentStyle == .grid)
                 .accessibilityHidden(currentStyle != .grid)
             filmOnlyOptions
-                .opacity(currentStyle == .filmStrip ? 1 : 0)
-                .allowsHitTesting(currentStyle == .filmStrip)
-                .accessibilityHidden(currentStyle != .filmStrip)
-            sleeveOnlyOptions
-                .opacity(currentStyle == .negativeSleeve ? 1 : 0)
-                .allowsHitTesting(currentStyle == .negativeSleeve)
-                .accessibilityHidden(currentStyle != .negativeSleeve)
+                .opacity(currentStyle == .grid ? 0 : 1)
+                .allowsHitTesting(currentStyle != .grid)
+                .accessibilityHidden(currentStyle == .grid)
         }
 
         // 余白・間隔・背景色（旧 用紙パネルからここへ統合）
@@ -318,12 +315,6 @@ extension FloatingControlBar {
             }
             Toggle("縁にコマ番号を刻印", isOn: $viewModel.sheet.layout.filmEdgeShowsFrameNumbers)
                 .font(.subheadline)
-        }
-    }
-
-    private var sleeveOnlyOptions: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            filmFormatRow
         }
     }
 

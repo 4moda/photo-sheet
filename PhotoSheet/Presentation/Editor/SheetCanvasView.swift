@@ -126,6 +126,7 @@ struct SheetCanvasView: View {
         let frameWidth = SheetLayoutMath.filmFrameWidth(layout, width: width)
         let contentWidth = SheetLayoutMath.contentWidth(layout, width: width)
         let separator = SheetLayoutMath.filmSeparator(layout, width: width)
+        let leader = SheetLayoutMath.filmLeader(layout, width: width)
         return ForEach(rowRanges.indices, id: \.self) { index in
             FilmStripRow(
                 photos: Array(sheet.photos[rowRanges[index]]),
@@ -134,6 +135,7 @@ struct SheetCanvasView: View {
                 frameWidth: frameWidth,
                 contentWidth: contentWidth,
                 separator: separator,
+                leader: leader,
                 format: layout.filmFormat,
                 edgeText: layout.filmEdgeText,
                 edgeShowsFrameNumbers: layout.filmEdgeShowsFrameNumbers,
@@ -147,33 +149,73 @@ struct SheetCanvasView: View {
                     withAnimation(.easeInOut(duration: 0.15)) { dropTargetId = targeted ? id : nil }
                 }
             )
+            // 手貼り感: ストリップは手で並べるため、行ごとに僅かに揃わない（決定論的乱数）
+            .rotationEffect(
+                .degrees(SheetLayoutMath.stripLayRotationDegrees(row: index)),
+                anchor: .center
+            )
+            .offset(x: width * SheetLayoutMath.stripLayOffsetRatio(row: index))
         }
     }
 
     // MARK: - Negative sleeve style
 
+    /// ネガファイル: バインダー穴の余白列 + フィルムストリップ入りポケットの段組み
     private var sleeveRows: some View {
-        let frameWidth = SheetLayoutMath.filmFrameWidth(layout, width: width)
-        let contentWidth = SheetLayoutMath.contentWidth(layout, width: width)
+        let frameWidth = SheetLayoutMath.sleeveFrameWidth(layout, width: width)
+        let stripWidth = SheetLayoutMath.sleeveContentWidth(layout, width: width)
+        let punchMargin = SheetLayoutMath.sleevePunchMargin(layout, width: width)
         let separator = SheetLayoutMath.filmSeparator(layout, width: width)
-        return ForEach(rowRanges.indices, id: \.self) { index in
-            NegativeSleeveRow(
-                photos: Array(sheet.photos[rowRanges[index]]),
-                frameWidth: frameWidth,
-                contentWidth: contentWidth,
-                separator: separator,
-                format: layout.filmFormat,
-                showDateStamp: layout.showDateStamp,
-                adjustments: layout.adjustments,
-                imageCache: imageCache,
-                onTapPhoto: onTapPhoto,
-                onMovePhoto: onMovePhoto,
-                dropTargetId: dropTargetId,
-                onDropTargeted: { id, targeted in
-                    withAnimation(.easeInOut(duration: 0.15)) { dropTargetId = targeted ? id : nil }
-                }
-            )
+        let leader = SheetLayoutMath.filmLeader(layout, width: width)
+        return VStack(alignment: .leading, spacing: spacing) {
+            ForEach(rowRanges.indices, id: \.self) { index in
+                NegativeSleeveRow(
+                    photos: Array(sheet.photos[rowRanges[index]]),
+                    startNumber: rowRanges[index].lowerBound + 1,
+                    columns: layout.columns,
+                    frameWidth: frameWidth,
+                    stripWidth: stripWidth,
+                    separator: separator,
+                    leader: leader,
+                    format: layout.filmFormat,
+                    edgeText: layout.filmEdgeText,
+                    edgeShowsFrameNumbers: layout.filmEdgeShowsFrameNumbers,
+                    showDateStamp: layout.showDateStamp,
+                    adjustments: layout.adjustments,
+                    imageCache: imageCache,
+                    onTapPhoto: onTapPhoto,
+                    onMovePhoto: onMovePhoto,
+                    dropTargetId: dropTargetId,
+                    onDropTargeted: { id, targeted in
+                        withAnimation(.easeInOut(duration: 0.15)) { dropTargetId = targeted ? id : nil }
+                    }
+                )
+            }
         }
+        .padding(.leading, punchMargin)
+        .overlay(alignment: .leading) {
+            punchHoleColumn(width: punchMargin)
+        }
+    }
+
+    /// バインダーのパンチ穴（1/3・2/3 の位置に 2 個）
+    private func punchHoleColumn(width punchWidth: Double) -> some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            punchHole(diameter: punchWidth * 0.5)
+            Spacer(minLength: 0)
+            punchHole(diameter: punchWidth * 0.5)
+            Spacer(minLength: 0)
+        }
+        .frame(width: punchWidth)
+        .allowsHitTesting(false)
+    }
+
+    private func punchHole(diameter: Double) -> some View {
+        Circle()
+            .fill(Color.black.opacity(0.10))
+            .overlay(Circle().strokeBorder(Color.black.opacity(0.14), lineWidth: 0.8))
+            .frame(width: diameter, height: diameter)
     }
 
     // MARK: - Shared
@@ -249,6 +291,8 @@ private struct FilmStripRow: View {
     let frameWidth: Double
     let contentWidth: Double
     let separator: Double
+    /// ストリップ端の切り残し余白（カットの痕跡）
+    let leader: Double
     let format: FilmFormat
     let edgeText: String
     let edgeShowsFrameNumbers: Bool
@@ -341,6 +385,7 @@ private struct FilmStripRow: View {
             }
             Spacer(minLength: 0)
         }
+        .padding(.leading, leader)
         .frame(width: contentWidth, height: frameHeight, alignment: .topLeading)
     }
 
@@ -364,17 +409,25 @@ private struct FilmStripRow: View {
             }
             Spacer(minLength: 0)
         }
+        .padding(.leading, leader)
         .frame(width: contentWidth, height: edgeBandHeight, alignment: .leading)
     }
 }
 
-/// ネガシート（スリーブ）の 1 段。半透明ポケットにコマが収まっているように描く。
+/// ネガシート（スリーブ）の 1 段。実物どおり「切ったフィルムストリップ」が
+/// 半透明ポケットに収まっているように、FilmStripRow をそのまま中身にする。
 private struct NegativeSleeveRow: View {
     let photos: [SheetPhoto]
+    let startNumber: Int
+    let columns: Int
     let frameWidth: Double
-    let contentWidth: Double
+    /// スリーブ内でストリップが使える幅（バインダー穴余白を除いたもの）
+    let stripWidth: Double
     let separator: Double
+    let leader: Double
     let format: FilmFormat
+    let edgeText: String
+    let edgeShowsFrameNumbers: Bool
     let showDateStamp: Bool
     let adjustments: SheetAdjustments
     let imageCache: PhotoImageCache
@@ -383,39 +436,30 @@ private struct NegativeSleeveRow: View {
     var dropTargetId: UUID?
     var onDropTargeted: ((UUID, Bool) -> Void)?
 
-    private var frameHeight: Double { frameWidth / format.frameAspect }
     private var padding: Double { frameWidth * SheetLayoutMath.sleevePaddingRatio }
 
     var body: some View {
-        HStack(alignment: .top, spacing: separator) {
-            ForEach(photos) { photo in
-                Group {
-                    let rotate = SheetLayoutMath.filmNeedsRotation(
-                        photoAspect: photo.aspectRatio,
-                        frameAspect: format.frameAspect
-                    )
-                    if let image = imageCache.image(for: photo, adjustments: adjustments, rotatedQuarterTurn: rotate) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        Color.gray.opacity(0.25)
-                    }
-                }
-                .frame(width: frameWidth, height: frameHeight)
-                .clipped()
-                // 半透明スリーブ越しに見えるように、わずかにミルキーな膜をかける
-                .overlay(Color.white.opacity(0.10))
-                .dateStampOverlay(
-                    date: showDateStamp ? photo.captureDate : nil,
-                    cellWidth: frameWidth
-                )
-                .dropTargetOverlay(show: dropTargetId == photo.id)
-                .photoInteraction(photo, onTap: onTapPhoto, onMove: onMovePhoto, onDropTargeted: onDropTargeted)
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(width: contentWidth, height: frameHeight, alignment: .topLeading)
+        FilmStripRow(
+            photos: photos,
+            startNumber: startNumber,
+            columns: columns,
+            frameWidth: frameWidth,
+            contentWidth: stripWidth,
+            separator: separator,
+            leader: leader,
+            format: format,
+            edgeText: edgeText,
+            edgeShowsFrameNumbers: edgeShowsFrameNumbers,
+            showDateStamp: showDateStamp,
+            adjustments: adjustments,
+            imageCache: imageCache,
+            onTapPhoto: onTapPhoto,
+            onMovePhoto: onMovePhoto,
+            dropTargetId: dropTargetId,
+            onDropTargeted: onDropTargeted
+        )
+        // 半透明スリーブ越しに見えるミルキーな膜（操作は透過させる）
+        .overlay(Color.white.opacity(0.14).allowsHitTesting(false))
         .padding(.vertical, padding)
         .background(
             // 半透明ポケット: フロスト面・上下の溶着シーム・下端の影で立体感を出す

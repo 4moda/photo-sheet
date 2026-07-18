@@ -117,9 +117,11 @@ final class SheetLayoutMathTests: XCTestCase {
         )
     }
 
-    func testSleeveStripHeightHasPocketPadding() {
+    func testSleeveStripHeightWrapsFilmStripInPocket() {
         let frameWidth = 150.0
-        let expected = frameWidth * (0.06 * 2) + frameWidth / 1.5
+        // 中身は実物どおりフィルムストリップ（エッジ帯・スプロケット込み）+ 上下のポケット余白
+        let expected = frameWidth * (0.06 * 2)
+            + SheetLayoutMath.filmStripHeight(frameWidth: frameWidth, format: .fullFrame)
         XCTAssertEqual(
             SheetLayoutMath.sleeveStripHeight(frameWidth: frameWidth, format: .fullFrame),
             expected,
@@ -133,7 +135,7 @@ final class SheetLayoutMathTests: XCTestCase {
         sheet.layout.columns = 6
         let width = 1000.0
 
-        let frameWidth = SheetLayoutMath.filmFrameWidth(sheet.layout, width: width)
+        let frameWidth = SheetLayoutMath.sleeveFrameWidth(sheet.layout, width: width)
         let stripHeight = SheetLayoutMath.sleeveStripHeight(frameWidth: frameWidth, format: .fullFrame)
         let spacing = SheetLayoutMath.spacing(sheet.layout, width: width)
         let margin = SheetLayoutMath.margin(sheet.layout, width: width)
@@ -144,6 +146,56 @@ final class SheetLayoutMathTests: XCTestCase {
             expected,
             accuracy: 0.01
         )
+    }
+
+    func testFilmFrameWidthAccountsForLeaderAndSeparators() {
+        let layout = LayoutConfig.default
+        let width = 1000.0
+        let content = SheetLayoutMath.contentWidth(layout, width: width)
+        let separator = SheetLayoutMath.filmSeparator(layout, width: width)
+        let leader = SheetLayoutMath.filmLeader(layout, width: width)
+        let frameWidth = SheetLayoutMath.filmFrameWidth(layout, width: width)
+        // 恒等式: leader×2 + コマ×n + 間隔×(n-1) = コンテンツ幅
+        let total = leader * 2 + frameWidth * Double(layout.columns)
+            + separator * Double(layout.columns - 1)
+        XCTAssertEqual(total, content, accuracy: 0.001)
+    }
+
+    func testSleeveFrameWidthIsNarrowerByPunchMargin() {
+        let layout = LayoutConfig.default
+        let width = 1000.0
+        // バインダー穴の余白ぶん、スリーブのコマはフィルムより狭い
+        XCTAssertLessThan(
+            SheetLayoutMath.sleeveFrameWidth(layout, width: width),
+            SheetLayoutMath.filmFrameWidth(layout, width: width)
+        )
+        let stripWidth = SheetLayoutMath.sleeveContentWidth(layout, width: width)
+        let punch = SheetLayoutMath.sleevePunchMargin(layout, width: width)
+        XCTAssertEqual(
+            stripWidth + punch,
+            SheetLayoutMath.contentWidth(layout, width: width),
+            accuracy: 0.001
+        )
+    }
+
+    func testStripLayOffsetsAreDeterministicAndBounded() {
+        for row in 0..<24 {
+            XCTAssertEqual(
+                SheetLayoutMath.stripLayOffsetRatio(row: row),
+                SheetLayoutMath.stripLayOffsetRatio(row: row)
+            )
+            XCTAssertLessThanOrEqual(
+                abs(SheetLayoutMath.stripLayOffsetRatio(row: row)),
+                SheetLayoutMath.stripLayMaxOffsetRatio
+            )
+            XCTAssertLessThanOrEqual(
+                abs(SheetLayoutMath.stripLayRotationDegrees(row: row)),
+                SheetLayoutMath.stripLayMaxRotationDegrees
+            )
+        }
+        // 全行が同じ値なら「手貼り感」にならない
+        let offsets = Set((0..<24).map { SheetLayoutMath.stripLayOffsetRatio(row: $0) })
+        XCTAssertGreaterThan(offsets.count, 1)
     }
 
     func testFilmFormatAspects() {
