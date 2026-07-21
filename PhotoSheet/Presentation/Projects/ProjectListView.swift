@@ -81,10 +81,11 @@ struct ProjectListView: View {
                     Text("\(summary.photoCount)枚")
                 }
                 .font(.caption)
+                .fontDesign(.monospaced)
                 .foregroundStyle(.secondary)
             }
             .padding(10)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+            .background(Color("CardSurface"), in: RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
         }
         .buttonStyle(.plain)
