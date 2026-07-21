@@ -42,6 +42,10 @@ targets:
         # Assets.xcassets 追加（Safelight AccentColor）で actool が動くようになり、
         # 存在しない AppIcon セットの参照でビルドが落ちるのを防ぐ。
         ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        # AccentColor.colorset をアプリ全体の tint として実際に使うには明示指定が必要
+        # （AppIcon と違い xcodegen は自動で設定しない。指定しないと Color.accentColor が
+        # 常に system blue のままになる）。
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
   PhotoSheetTests:
     type: bundle.unit-test
     platform: iOS
