@@ -7,6 +7,7 @@ struct PhotoSheetApp: App {
 
     init() {
         Self.configureSegmentedControlAppearance()
+        Self.configureSwitchAppearance()
     }
 
     var body: some Scene {
@@ -30,5 +31,11 @@ struct PhotoSheetApp: App {
             [.foregroundColor: UIColor(named: "CardSurface") ?? .white],
             for: .selected
         )
+    }
+
+    /// モノクロ・ファイル名表示・コマ番号刻印・撮影日自動表示などのトグルも
+    /// iOS 既定の緑ではなく Safelight で統一する。
+    private static func configureSwitchAppearance() {
+        UISwitch.appearance().onTintColor = UIColor(named: "AccentColor")
     }
 }

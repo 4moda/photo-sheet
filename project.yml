@@ -38,10 +38,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.fourmoda.photosheet
         TARGETED_DEVICE_FAMILY: "1"
-        # まだ AppIcon 画像を用意していないため、xcodegen の既定値 "AppIcon" を無効化。
-        # Assets.xcassets 追加（Safelight AccentColor）で actool が動くようになり、
-        # 存在しない AppIcon セットの参照でビルドが落ちるのを防ぐ。
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        # AppIcon.appiconset を追加したので xcodegen の既定値 "AppIcon" をそのまま使う
+        # (以前は Assets.xcassets に AppIcon が無く actool が落ちるため空文字で無効化していた)。
         # AccentColor.colorset をアプリ全体の tint として実際に使うには明示指定が必要
         # （AppIcon と違い xcodegen は自動で設定しない。指定しないと Color.accentColor が
         # 常に system blue のままになる）。
