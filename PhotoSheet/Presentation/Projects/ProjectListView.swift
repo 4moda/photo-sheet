@@ -83,6 +83,9 @@ struct ProjectListView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+            .padding(10)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
         }
         .buttonStyle(.plain)
         .contextMenu {

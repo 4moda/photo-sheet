@@ -283,7 +283,9 @@ extension FloatingControlBar {
         HStack {
             Text(label)
                 .font(.subheadline)
-                .frame(width: 76, alignment: .leading)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(minWidth: 76, alignment: .leading)
             Slider(value: value, in: range)
         }
     }
@@ -420,7 +422,9 @@ extension FloatingControlBar {
         HStack {
             Text(label)
                 .font(.subheadline)
-                .frame(width: 52, alignment: .leading)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(minWidth: 52, alignment: .leading)
             content()
         }
     }
