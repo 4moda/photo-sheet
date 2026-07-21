@@ -17,6 +17,9 @@ struct PhotoSheetApp: App {
                 // Assets.xcassets の名前付きカラーを明示的に環境へ伝播させる
                 // (このビルド環境では暗黙の AccentColor 解決が効かなかったため)。
                 .tint(Color("AccentColor"))
+                // ダークモードのスポットチェック撮影用（UITestSeeder 参照）。
+                // 通常起動では forcesDarkMode が false なので nil = システム設定に従う。
+                .preferredColorScheme(UITestSeeder.forcesDarkMode ? .dark : nil)
         }
     }
 

@@ -10,9 +10,9 @@ import XCTest
 final class ScreenshotSmokeTests: XCTestCase {
 
     @MainActor
-    private func makeApp(seed: Bool) -> XCUIApplication {
+    private func makeApp(seed: Bool, dark: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--uitest"] + (seed ? ["--seed-demo"] : [])
+        app.launchArguments = ["--uitest"] + (seed ? ["--seed-demo"] : []) + (dark ? ["--uitest-dark"] : [])
         setupSnapshot(app)
         return app
     }
@@ -79,6 +79,38 @@ final class ScreenshotSmokeTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["DEMO ROLL"].waitForExistence(timeout: 10))
         sleep(2)
         snapshot("S01-F01-project-list-populated")
+    }
+
+    // MARK: - ダークモード スポットチェック
+    // 全画面を倍撮りするのではなく、Safelight の反映箇所（アクセント・カード面・
+    // セグメントピッカー選択ピル・トグル）が一目でわかる代表画面だけを撮る。
+    // スナップ名の末尾 `-dark` で tools/build_screenshot_index.py がテーマ列に分類する。
+
+    @MainActor
+    func testDarkModeSpotCheck() throws {
+        let app = makeApp(seed: true, dark: true)
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["DEMO ROLL"].waitForExistence(timeout: 15))
+        sleep(1)
+        snapshot("S01-F01-project-list-populated-dark")
+
+        app.staticTexts["DEMO ROLL"].tap()
+        XCTAssertTrue(app.buttons["見た目"].waitForExistence(timeout: 10))
+        sleep(1)
+        snapshot("S02-F01-canvas-grid-dark")
+
+        guard tapBarButton(app, "見た目") else { return }
+        guard app.buttons["フィルム"].waitForExistence(timeout: 5) else { return }
+        sleep(1)
+        snapshot("S02-F10-appearance-panel-grid-dark")
+        tapBarButton(app, "見た目")
+        sleep(1)
+
+        guard tapBarButton(app, "書き出し") else { return }
+        guard app.buttons["動画"].waitForExistence(timeout: 5) else { return }
+        sleep(1)
+        snapshot("S02-F40-export-image-panel-dark")
     }
 
     // MARK: - [+] メニュー（追加・撮影順に並べ替え・全削除）

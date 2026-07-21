@@ -65,8 +65,25 @@ fastlane snapshot の出力は `<言語>/<端末slug>--<スナップ名>.png`。
 | F50 | 長押しドラッグ並べ替え（ドロップ先ハイライト） | （ドラッグ中 UI は XCUITest で安定撮影できないため未撮影） |
 | F51 | 書き出し中の進捗オーバーレイ | |
 
+## ダークモード スポットチェック（`testDarkModeSpotCheck`）
+
+全画面をライト/ダークで倍撮りするのではなく、Safelight（配色刷新）の反映箇所が
+一目でわかる代表画面だけをダークで追加撮影する。スナップ名の末尾 `-dark` で
+`tools/build_screenshot_index.py` がテーマ列（ライト/ダーク）に自動分類する。
+
+| 画面 | 撮 |
+|---|---|
+| S01 プロジェクト一覧（カード面・アクセント） | 撮 `S01-F01-project-list-populated-dark` |
+| S02 キャンバス（フローティングバー） | 撮 `S02-F01-canvas-grid-dark` |
+| S02 見た目パネル（セグメントピッカー選択ピル・トグル） | 撮 `S02-F10-appearance-panel-grid-dark` |
+| S02 書き出しパネル（保存/共有ボタン） | 撮 `S02-F40-export-image-panel-dark` |
+
 ## 撮影の前提（決定論）
 
 - `--uitest` 起動引数: プロジェクト保存先を一時ディレクトリへ切替（毎回まっさら）
 - `--seed-demo` 起動引数: 生成画像 12 枚のデモシート「DEMO ROLL」を投入
   （前半 8 枚は撮影日あり・後半 4 枚は EXIF なしスキャン相当。`UITestSeeder` 参照）
+- `--uitest-dark` 起動引数: ダークモードを強制（`.preferredColorScheme(.dark)`）。
+  Snapfile の `dark_mode` はシミュレータ全体の外観切替だが、screenshots ジョブは
+  `test_without_building` を使うため効かない。そのためアプリ側で強制する
+  （`UITestSeeder.forcesDarkMode` 参照）

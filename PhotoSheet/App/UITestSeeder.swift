@@ -3,6 +3,7 @@ import UIKit
 /// UIテスト / CIスクショ撮影用の決定論的なデモデータ投入。
 /// `--uitest` 起動引数: プロジェクト保存先を一時ディレクトリへ切り替える（毎回まっさら）。
 /// `--seed-demo` 起動引数: 生成画像入りのデモプロジェクトを 1 件作る。
+/// `--uitest-dark` 起動引数: ダークモードのスポットチェック撮影用。
 /// 本番の起動経路には一切影響しない（引数がない限り何もしない）。
 enum UITestSeeder {
     static var isUITest: Bool {
@@ -11,6 +12,14 @@ enum UITestSeeder {
 
     private static var shouldSeed: Bool {
         CommandLine.arguments.contains("--seed-demo")
+    }
+
+    /// Snapfile の `dark_mode` はシミュレータ全体の外観を切り替えるが、
+    /// このプロジェクトは screenshots ジョブで `test_without_building` を使うため効かない
+    /// （Snapfile 内のコメント参照）。代わりに SwiftUI 側で `.preferredColorScheme` を
+    /// 強制することで、同一テストターゲット内の 1 メソッドだけダークで撮影できるようにする。
+    static var forcesDarkMode: Bool {
+        CommandLine.arguments.contains("--uitest-dark")
     }
 
     /// UIテスト時のプロジェクト保存先（起動ごとに空の一時ディレクトリ）
