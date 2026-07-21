@@ -307,9 +307,9 @@ private extension View {
     func dropTargetOverlay(show: Bool) -> some View {
         overlay {
             if show {
-                Color.accentColor.opacity(0.25)
+                Color("AccentColor").opacity(0.25)
                 RoundedRectangle(cornerRadius: 4)
-                    .stroke(Color.accentColor, lineWidth: 3)
+                    .stroke(Color("AccentColor"), lineWidth: 3)
             }
         }
     }

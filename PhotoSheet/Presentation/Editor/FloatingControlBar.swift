@@ -100,7 +100,7 @@ struct FloatingControlBar: View {
                 .foregroundStyle(isHighlighted ? Color.white : Color.primary)
                 .frame(width: 40, height: 40)
                 .background(
-                    Circle().fill(isHighlighted ? Color.accentColor : Color.clear)
+                    Circle().fill(isHighlighted ? Color("AccentColor") : Color.clear)
                 )
         }
         .buttonStyle(.plain)
@@ -228,7 +228,7 @@ extension FloatingControlBar {
                 .foregroundStyle(isSelected ? Color.white : Color.primary)
                 .frame(width: 34, height: 34)
                 .background(
-                    Circle().fill(isSelected ? Color.accentColor : Color.gray.opacity(0.12))
+                    Circle().fill(isSelected ? Color("AccentColor") : Color.gray.opacity(0.12))
                 )
         }
         .buttonStyle(.plain)
@@ -447,7 +447,7 @@ extension FloatingControlBar {
                 }
                 .overlay(
                     Circle().strokeBorder(
-                        isSelected ? Color.accentColor : Color.gray.opacity(0.4),
+                        isSelected ? Color("AccentColor") : Color.gray.opacity(0.4),
                         lineWidth: isSelected ? 2 : 1
                     )
                 )
