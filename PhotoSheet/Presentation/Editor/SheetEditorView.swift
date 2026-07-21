@@ -96,9 +96,14 @@ struct SheetEditorView: View {
                         onTapPhoto: { actionPhotoId = $0 },
                         onMovePhoto: { viewModel.movePhoto($0, toPositionOf: $1) }
                     )
+                    // 白背景のシートが画面の白と溶けて境界が消えるのを防ぐ影
+                    // （SheetCanvasView 自体は変更しないため、記録済みスナップショットに影響しない）
+                    .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
                     // フローティングバーに隠れないよう下端に余白を確保
                     .padding(.bottom, 96)
                 }
+                // 白背景のシートも「置かれた一枚」として見えるよう、周囲をわずかに沈める
+                .background(Color(.systemGroupedBackground))
             }
             .overlay(alignment: .bottom) {
                 FloatingControlBar(viewModel: viewModel)
